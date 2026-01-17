@@ -374,6 +374,11 @@ ipcMain.handle('get-local-subnet', () => {
 
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
+  // Set custom User-Agent for CloudFront bypass
+  const defaultSession = require('electron').session.defaultSession;
+  const originalUA = defaultSession.getUserAgent();
+  defaultSession.setUserAgent(`${originalUA} PIXPOS-POS Electron`);
+  
   createMainWindow();
 
   app.on('activate', () => {
