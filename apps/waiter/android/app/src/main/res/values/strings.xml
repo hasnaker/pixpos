@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PIXPOS Garson</string>
+    <string name="title_activity_main">PIXPOS Garson</string>
+    <string name="package_name">cloud.pixpos.waiter</string>
+    <string name="custom_url_scheme">cloud.pixpos.waiter</string>
+</resources>

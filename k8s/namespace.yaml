@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mega-pos
+  labels:
+    name: mega-pos
+    environment: production
+    project: mega-pos-mvp

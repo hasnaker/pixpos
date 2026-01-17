@@ -1,0 +1,11 @@
+export { default as BusinessTab } from './BusinessTab';
+export { default as UsersTab } from './UsersTab';
+export { default as ZonesTab } from './ZonesTab';
+export { default as TablesTab } from './TablesTab';
+export { default as MenuTab } from './MenuTab';
+export { default as PrintersTab } from './PrintersTab';
+export { OkcTab } from './OkcTab';
+export { default as DevicesTab } from './DevicesTab';
+export { default as ReceiptTab } from './ReceiptTab';
+export { default as SecurityTab } from './SecurityTab';
+export { default as SystemTab } from './SystemTab';

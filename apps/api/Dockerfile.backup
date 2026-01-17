@@ -1,0 +1,58 @@
+# Multi-stage build for production
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY packages/shared/package*.json ./packages/shared/
+
+# Install dependencies
+RUN npm ci --workspace=apps/api --workspace=packages/shared
+
+# Copy source code
+COPY apps/api ./apps/api
+COPY packages/shared ./packages/shared
+
+# Build shared package first
+RUN npm run build --workspace=packages/shared
+
+# Build API
+RUN npm run build --workspace=apps/api
+
+# Production stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install production dependencies only
+COPY package*.json ./
+COPY apps/api/package*.json ./apps/api/
+COPY packages/shared/package*.json ./packages/shared/
+
+RUN npm ci --workspace=apps/api --workspace=packages/shared --omit=dev
+
+# Copy built files from builder
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+
+# Copy migrations
+COPY apps/api/src/migrations ./apps/api/src/migrations
+
+# Create uploads directory
+RUN mkdir -p /app/apps/api/uploads/products
+
+# Set environment
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start application
+CMD ["node", "apps/api/dist/main.js"]

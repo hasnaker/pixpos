@@ -1,0 +1,15 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_10cbb3ac6e212b158555c1fbaa1c70de.pixpos.site",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {"Value": "_ab523b16a338aa74b6d9166df8dc5063.jkddzztszm.acm-validations.aws."}
+        ]
+      }
+    }
+  ]
+}

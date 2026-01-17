@@ -1,0 +1,45 @@
+{
+  "CallerReference": "pixpos-boss-20260116",
+  "Comment": "PIXPOS Boss Panel Distribution",
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "S3-pixpos-boss",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 2,
+      "Items": ["GET", "HEAD"],
+      "CachedMethods": {
+        "Quantity": 2,
+        "Items": ["GET", "HEAD"]
+      }
+    },
+    "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+    "Compress": true
+  },
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "S3-pixpos-boss",
+        "DomainName": "pixpos-boss-986906625644.s3.eu-central-1.amazonaws.com",
+        "OriginAccessControlId": "E34ZTJ2LPKTOC4",
+        "S3OriginConfig": {
+          "OriginAccessIdentity": ""
+        }
+      }
+    ]
+  },
+  "Enabled": true,
+  "DefaultRootObject": "index.html",
+  "CustomErrorResponses": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "ErrorCode": 403,
+        "ResponsePagePath": "/index.html",
+        "ResponseCode": "200",
+        "ErrorCachingMinTTL": 10
+      }
+    ]
+  },
+  "PriceClass": "PriceClass_100"
+}

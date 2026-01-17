@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+.next
+.turbo
+
+# Electron build outputs
+electron-dist
+**/electron-dist
+*.exe
+*.dmg
+*.AppImage
+
+# Android build outputs
+**/android/app/build
+**/android/.gradle
+**/android/build
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Test coverage
+coverage
+
+# Misc
+*.tsbuildinfo
+
+# Kiro settings (may contain secrets)
+.kiro/settings

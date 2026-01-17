@@ -1,0 +1,305 @@
+@import "tailwindcss";
+
+:root {
+  /* Queen Waffle - Apple iOS Dark Theme */
+  --gold: #c49f74;
+  --gold-light: #d4b896;
+  --gold-dark: #a68556;
+  
+  /* iOS System Colors */
+  --system-background: #000000;
+  --secondary-background: #1c1c1e;
+  --tertiary-background: #2c2c2e;
+  --grouped-background: #1c1c1e;
+  
+  --label: #ffffff;
+  --secondary-label: rgba(235, 235, 245, 0.6);
+  --tertiary-label: rgba(235, 235, 245, 0.3);
+  --quaternary-label: rgba(235, 235, 245, 0.18);
+  
+  --separator: rgba(84, 84, 88, 0.65);
+  --opaque-separator: #38383a;
+  
+  --fill: rgba(120, 120, 128, 0.36);
+  --secondary-fill: rgba(120, 120, 128, 0.32);
+  --tertiary-fill: rgba(118, 118, 128, 0.24);
+  --quaternary-fill: rgba(116, 116, 128, 0.18);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--system-background);
+  color: var(--label);
+  overscroll-behavior-y: none;
+}
+
+/* Hide scrollbar but keep functionality */
+::-webkit-scrollbar { display: none; }
+* { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* iOS-style blur backgrounds */
+.blur-chrome {
+  background: rgba(28, 28, 30, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+.blur-chrome-heavy {
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: saturate(180%) blur(40px);
+  -webkit-backdrop-filter: saturate(180%) blur(40px);
+}
+
+/* iOS Card Style */
+.ios-card {
+  background: var(--secondary-background);
+  border-radius: 12px;
+}
+
+.ios-card-inset {
+  background: var(--tertiary-background);
+  border-radius: 10px;
+}
+
+/* iOS List Style */
+.ios-list {
+  background: var(--secondary-background);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ios-list-item {
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+  transition: background-color 0.1s ease;
+}
+
+.ios-list-item:active {
+  background: var(--tertiary-background);
+}
+
+.ios-list-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+
+/* iOS Button Styles */
+.ios-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.4px;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.ios-button:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+
+.ios-button-filled {
+  background: var(--gold);
+  color: #000;
+  padding: 16px 20px;
+}
+
+.ios-button-gray {
+  background: var(--fill);
+  color: var(--label);
+  padding: 16px 20px;
+}
+
+.ios-button-plain {
+  color: var(--gold);
+  padding: 8px 12px;
+}
+
+/* iOS Search Bar */
+.ios-search {
+  background: var(--tertiary-fill);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ios-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 17px;
+  color: var(--label);
+  letter-spacing: -0.4px;
+}
+
+.ios-search input::placeholder {
+  color: var(--tertiary-label);
+}
+
+/* iOS Tab Bar */
+.ios-tab-bar {
+  background: rgba(28, 28, 30, 0.94);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid var(--separator);
+}
+
+/* iOS Navigation Bar */
+.ios-nav-bar {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 0.5px solid var(--separator);
+}
+
+/* Typography - SF Pro */
+.sf-large-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.37px;
+  line-height: 1.2;
+}
+
+.sf-title-1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.36px;
+}
+
+.sf-title-2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+}
+
+.sf-title-3 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.38px;
+}
+
+.sf-headline {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+}
+
+.sf-body {
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.4px;
+}
+
+.sf-callout {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.3px;
+}
+
+.sf-subheadline {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+}
+
+.sf-footnote {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+}
+
+.sf-caption-1 {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.sf-caption-2 {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.07px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Safe Areas */
+.safe-area-top {
+  padding-top: max(env(safe-area-inset-top), 20px);
+}
+
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 34px);
+}
+
+/* Gold accent utilities */
+.text-gold { color: var(--gold); }
+.bg-gold { background-color: var(--gold); }
+.border-gold { border-color: var(--gold); }
+
+/* Skeleton loading */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--tertiary-background) 25%, var(--secondary-background) 50%, var(--tertiary-background) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}

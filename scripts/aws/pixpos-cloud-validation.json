@@ -1,0 +1,37 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_d6c8fa812ee2ac2155ecdd368e9d73d3.pixpos.cloud",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {"Value": "_e474ccf426259f5711fc6e937264382b.jkddzztszm.acm-validations.aws."}
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_cd1dba8a48c9b608502b52bf37bb04c6.api.pixpos.cloud",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {"Value": "_a6c84e4de8996687979021e18f4d34aa.jkddzztszm.acm-validations.aws."}
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_cf3b794f7d7146584bf5d49ff9c0c56f.ws.pixpos.cloud",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {"Value": "_376e22c642293d39983a169422f10956.jkddzztszm.acm-validations.aws."}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "mega-pos",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "clean": "turbo clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.0",
+    "xlsx": "^0.18.5"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.970.0",
+    "pg": "^8.11.0"
+  }
+}

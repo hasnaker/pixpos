@@ -1,0 +1,756 @@
+{
+  "Sayfa1": [
+    [
+      "KATEGORİ",
+      "ÜRÜN",
+      "FİYAT ",
+      "AÇIKLAMA"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Waffle Mavi",
+      "165.00",
+      "Sütlü Dip Çikolata,Muz,Çilek,Kivi,Parça Yer Fıstığı,Parça Fındık,Bonibon,Sütlü Sos"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Waffle Pembe",
+      "165.00",
+      "Sütlü Dip Çikolata,Muz,Çilek,Kivi,Parça Yer Fıstığı,Parça Fındık,Bonibon,Sütlü Sos"
+    ],
+    [
+      "Çocuk Menü",
+      "Cars Menü",
+      "185.00",
+      "Beyaz Dip Çikolata,Muz,Çilek,Kivi,Bonibon,Beyaz Sos"
+    ],
+    [
+      "Çocuk Menü",
+      "Lol Menü",
+      "185.00",
+      "Beyaz Dip Çikolata,Muz,Çilek,Pirinç Patlağı,Frambuaz Sos"
+    ],
+    [
+      "Çocuk Menü",
+      "Solucan Jelly Mavi",
+      "170.00",
+      "Sütlü Dip Çikolata, Muz Çilek Kivi, Kakaolu Bisküvi, Jelibon"
+    ],
+    [
+      "Çocuk Menü",
+      "Solucan Jelly Pembe",
+      "170.00",
+      "Sütlü Dip Çikolata Muz Çilck Kivi Kakaolu Bisküvi Jelibon"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Süt",
+      "80.00"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Kakaolu süt",
+      "80.00",
+      "Çikolatalı süt"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Portakal Suyu",
+      "80.00",
+      "Taze sıkım portakal suyu"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Nar Suyu",
+      "80.00",
+      "Taze nar suyu"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Limonata",
+      "80.00",
+      "Taze limonata"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Çikolatalı Milkshake",
+      "90.00",
+      "Çikolatalı milkshake "
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Çilekli Milkshake",
+      "90.00",
+      "Çilekli milkshake"
+    ],
+    [
+      "Çocuk Menü",
+      "Kids Muzlu Milkshake",
+      "90.00",
+      "Muzlu milkshake"
+    ],
+    [
+      "Çocuk Menü",
+      "Maskot Su",
+      "50.00",
+      "Çocuklara özel karakterli su şişeleri - Star Wars ve Frozen temalı"
+    ],
+    [
+      "Pastalar",
+      "Flavor Dance Tek",
+      "330.00",
+      "Waffle Ve Pancake Hamuru,Çikolatalı Ve Red Velvet Pasta,Muz,Çilek,Ananas,Sütlü-Beyaz Çikolata"
+    ],
+    [
+      "Pastalar",
+      "Flavor Dance Çift",
+      "600.00",
+      "Waffle Ve Pancake Hamuru,Çikolatalı Ve Red Velvet Pasta,Muz,Çilek,Ananas,Sütlü-Beyaz Çikolata"
+    ],
+    [
+      "Pastalar",
+      "Perle Noire",
+      "330.00",
+      "Çikolatalı Kek, Muz, Çilek, Queen'in Kreması Queen Çikolatası, Parça fındık"
+    ],
+    [
+      "Pastalar",
+      "Passion Verte",
+      "330.00",
+      "Antep Fıstıklı Kek,Queenin Special Kreması,Çilek,Toz Antep,Queenin Çikolatası"
+    ],
+    [
+      "Pastalar",
+      "Marsala Pasta",
+      "360.00",
+      "Red Velvet Kek, Queen'in Karadutlu Kreması, Karadut, Sade Krema, Çilek, Queen'in Sütlü Beyaz Çikolatası, Parça Badem"
+    ],
+    [
+      "Pastalar",
+      "Mild Flawor Pasta",
+      "360.00",
+      "Muz, Çilek, Queen'in Speciali, Antep Fıstıklı Krema, Queen'in Çikolatası "
+    ],
+    [
+      "Pankek",
+      "Blanc Pankek",
+      "340.00",
+      "2 Kat Pankek hamuru arasına çilek, Queen'in Special Kreması, Parça Bedem, Queen'in sütlü-beyaz çikolatası"
+    ],
+    [
+      "Pankek",
+      "Noix Pankek",
+      "320.00",
+      "Pankek Hamuru, Muz, Çilek, Queen'in sütlü-beyaz çikolatası, Parça fındık"
+    ],
+    [
+      "Krepler",
+      "Queen Sushi",
+      "350.00",
+      "Waffle dilimlerinin çikolata ve yer fıstığı ile sunumu"
+    ],
+    [
+      "Krepler",
+      "Choco Dream",
+      "360.00",
+      "Hindistan Cevizi, Oreo Tozu, Muz, Çilek, Parça Fındık, Badem, Queen'in Özel Çikolatalı Waffle "
+    ],
+    [
+      "Krepler",
+      "Gift Krep",
+      "360.00",
+      "Queen'in Special Kreması, Muz, Çilek, Kek, Karamel Bisküvi, Queen'in Özel Çikolatası"
+    ],
+    [
+      "Cuplar",
+      "Blue Cup",
+      "340.00",
+      "Queen' in Special Sade Kreması, Çikolatalı Kek, İtalyan Krema, Karadut, Queen' in Çikolatası"
+    ],
+    [
+      "Cuplar",
+      "Karadutlu Cup",
+      "340.00",
+      "Karadutlu Krema, Velvet Kek, Karadut, Çilek, Sade Krema, Queen' in Beyaz Çikolatası"
+    ],
+    [
+      "Cuplar",
+      "Antep Fıstıklı Cup",
+      "350.00",
+      "Queen'in Special Sade Kreması, Antep Fıstıklık Kek, Antep Fıstıklı Krema, Çilek, Queen'in Çikolatası"
+    ],
+    [
+      "Cuplar",
+      "Simay Cup",
+      "330.00",
+      "Parça Fındık, Toz Antep Fıstığı, Queen Special Kreması, Muz, Çilek, Queen'in Özel Çikolatası"
+    ],
+    [
+      "Cuplar",
+      "Ege Cup",
+      "330.00",
+      "Karamelli Bisküvi Tozu, Queen Special Kreması, Çilek, Queen'in Özel Çikolatası"
+    ],
+    [
+      "Waffle",
+      "Klasik Waffle",
+      "350.00",
+      "Sütlü beyaz dip sos, Muz, Çilek, Kivi, Parça antep fıstığı, Parça yer fıstığı, Kestane, Sütlü üst sos"
+    ],
+    [
+      "Waffle",
+      "Queen Elsa",
+      "340.00",
+      "Beyaz dip sos, Muz, Çilek, Toz antep fıstığı, Toz fındık, Beyaz üst sos"
+    ],
+    [
+      "Waffle",
+      "Little Waffle",
+      "300.00",
+      "Sütlü dip sos, Muz, Çilek, Kivi, Parça yer fıstığı, Sütlü üst sos"
+    ],
+    [
+      "Waffle",
+      "Çikolata Aşkı",
+      "340.00",
+      "Bitter Sütlü dip sos, Muz, Çilek, Kivi, Toz Fındık, Parça Ceviz, Kestane, Bitter Damla Drop, Bitter üst sos"
+    ],
+    [
+      "Waffle",
+      "Karadeniz Esintisi",
+      "340.00",
+      "Fındık ezme din sos, Muz, Çilek, Parça fındık, Toz fındık, Sütlü üst sos"
+    ],
+    [
+      "Waffle",
+      "Anteplim Waffle",
+      "360.00",
+      "Antep fıstıklı dip sos, Muz, Çilek, Kivi, Parça Antep Fıstığı, Toz Antep Fıstığı, Antep Fıstıklı üst sos"
+    ],
+    [
+      "Waffle",
+      "Waffle Aşkı",
+      "340.00",
+      "5 farklı dip sos, Muz, Çilek, Kivi, Ananas, Parça fındık, Parça Antep Fıstığı, Parça Badem, Toz Antep Fıstığı, Toz fındık, 5 Farklı üst sos"
+    ],
+    [
+      "Waffle",
+      "3x Choco Waffle",
+      "360.00",
+      "Bitter-Beyaz dip sos, Muz, Çilek, Kivi, Ananas, Beyaz damla drop, Parça Antep Fıstığı, Bitter-Sütlü üst sos, Şırınğa Queen Sos"
+    ],
+    [
+      "Waffle",
+      "Kestane Sever",
+      "360.00",
+      "Beyaz dip sos, Muz, Çilek, Bol Kestane, Parça Ceviz, Beyaz üst sos"
+    ],
+    [
+      "Waffle",
+      "Happy Birthday Waffle",
+      "600.00",
+      "3 Kat Waffle Hamuru, Sütlü-Bitter-Beyaz dip sos, Muz, Ananas, Çilek, Kivi, Pirinç Patlağı, Top Granül"
+    ],
+    [
+      "Waffle",
+      "Fondü",
+      "310.00",
+      "Muz, Çilek, Kivi, Ananas, Parça fındık, Parça Antep Fıstığı, Parça Yer Fıstığı - Waffle siz çikolata lezzeti"
+    ],
+    [
+      "Waffle",
+      "Waffleci Sen Ol",
+      "370.00",
+      "Kendin Seç(İsteğe Göre)"
+    ],
+    [
+      "Waffle",
+      "Double Sen Ol",
+      "390.00",
+      "Kendin Seç(İsteğe Göre)"
+    ],
+    [
+      "Waffle",
+      "Sandviç Sen Ol",
+      "280.00",
+      "Kendin Seç(İsteğe Göre)"
+    ],
+    [
+      "Waffle",
+      "Dondurmalı Waffle",
+      "330.00",
+      "Sütlü Dip Sos, Muz/Çilek, Antep Fıstıklı - Sade ve Karadutlu Dondurma, Parça Ceviz, Bitter üst sos"
+    ],
+    [
+      "Waffle",
+      "Ice Waffle",
+      "320.00",
+      "2 Kat Waffle Hamuru arasında 3 top dondurma, Bitter sos, Toz Antep Fıstığı"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Espresso",
+      "110.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Double Espresso",
+      "120.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Americano",
+      "130.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Latte",
+      "140.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Capucino",
+      "140.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Flat White",
+      "140.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Mocha",
+      "140.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "White Chocolate Mocha",
+      "140.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Sade Filtre Kahve",
+      "130.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Fransız Vanilya",
+      "130.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Kenya",
+      "130.00"
+    ],
+    [
+      "Sıcak Dünya Kahveleri",
+      "Guatemala",
+      "130.00"
+    ],
+    [
+      "Türk Kahveleri",
+      "Türk Kahvesi",
+      "120.00"
+    ],
+    [
+      "Türk Kahveleri",
+      "Menengiç Türk Kahvesi",
+      "110.00"
+    ],
+    [
+      "Türk Kahveleri",
+      "Damla Sakızlı Türk Kahvesi",
+      "110.00"
+    ],
+    [
+      "Türk Kahveleri",
+      "Dibek Türk Kahvesi",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Çay ",
+      "40.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Fincan Çay",
+      "50.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Ada Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Yasemin Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Yeşil Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Papatya Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Ihlamur Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Nane Limon Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Melisa Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Detoks Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Kış Çayı",
+      "110.00"
+    ],
+    [
+      "Çay & Bitki Çayı",
+      "Nar Çiçeği Çayı",
+      "110.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Sıcak Çikolata",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Bitter Sıcak Çikolata",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Beyaz Çikolata",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Sahlep",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Çikolatalı Sahlep",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Damla Sakızlı Sahlep",
+      "150.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Süt",
+      "100.00"
+    ],
+    [
+      "Sıcak İçecekler",
+      "Ballı Süt",
+      "110.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Portakal Suyu",
+      "120.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Nar  Suyu",
+      "120.00"
+    ],
+    [
+      "Taze Sıkma",
+      "NarPortakal",
+      "130.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Limonata",
+      "120.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Çilekli Limonata",
+      "120.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Naneli Limonata",
+      "120.00"
+    ],
+    [
+      "Taze Sıkma",
+      "Meyveli Fanus",
+      "150.00"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "İce Latte",
+      "150.00",
+      "Soğuk sütlü espresso"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "İce Americano",
+      "140.00",
+      "Soğuk americano"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "İce Mocha",
+      "150.00",
+      "Soğuk çikolatalı kahve"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "İce White Chocolate Mocha",
+      "150.00",
+      "Buzlu beyaz çikolatalı mocha"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "İce Coffee Frappe",
+      "150.00",
+      "Buzlu kahve frappe"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "Oreo Frappe",
+      "150.00",
+      "Oreo kurabiyeli frappe"
+    ],
+    [
+      "Soğuk Dünya Kahveleri",
+      "Snickers Frappe",
+      "150.00",
+      "Snickers çikolatalı frappe"
+    ],
+    [
+      "Queen Kokteyl",
+      "Karadut-Limon Kokteyl",
+      "150.00"
+    ],
+    [
+      "Queen Kokteyl",
+      "Hibiskuslu Kokteyl",
+      "140.00",
+      "Hibiskus içerikli antioksidanlar, antosiyaninler ve polifenoller içerir."
+    ],
+    [
+      "Queen Kokteyl",
+      "Manga Şeftali Kokteyl",
+      "150.00",
+      "Mango ve şeftali içerikli ferahlatıcı kokteyl"
+    ],
+    [
+      "Queen Kokteyl",
+      "Aurora",
+      "150.00",
+      "Kutup ışıkları ya da kutup aurorası, Kuzey ve Güney kutup bölgelerinde gökyüzünde görülen, yeryüzünün manyetik alanı ile Güneşten gelen yüklü parçacıkların etkileşimi sonucu ortaya çıkan doğal ışımadır"
+    ],
+    [
+      "Queen Kokteyl",
+      "Limonlu-Hibiskuslu Kokteyl",
+      "140.00"
+    ],
+    [
+      "Queen Kokteyl",
+      "Mojito ",
+      "150.00",
+      "Nane, limon ve buz ile hazırlanan ferahlatıcı kokteyl"
+    ],
+    [
+      "Queen Kokteyl",
+      "Gökkuşağı",
+      "140.00",
+      "Renkli katmanlı kokteyl "
+    ],
+    [
+      "Queen Kokteyl",
+      "Pina Colada",
+      "160.00",
+      "Hindistan cevizi ve ananaslı kokteyl"
+    ],
+    [
+      "Queen Kokteyl",
+      "Orange Marry",
+      "160.00",
+      "Portakal aromalı özel kokteyl "
+    ],
+    [
+      "Queen Kokteyl",
+      "Cool Lime",
+      "150.00",
+      "Kalbini dinle beni iç yazılı limonlu serinletici içecek"
+    ],
+    [
+      "Queen Kokteyl",
+      "Smurf",
+      "160.00",
+      "Mavi renkli özel kokteyl"
+    ],
+    [
+      "Queen Kokteyl",
+      "Churchill",
+      "90.00",
+      "Limonlu ferahlatıcı içecek"
+    ],
+    [
+      "Queen Kokteyl",
+      "Coco Enerjy Cool",
+      "150.00",
+      "Hindistan cevizli enerji içeceği"
+    ],
+    [
+      "Queen Kokteyl",
+      "Mint Enerjy Cool",
+      "150.00",
+      "Naneli enerji içeceği"
+    ],
+    [
+      "Bubble Tea",
+      "Uykucu Bubble",
+      "150.00"
+    ],
+    [
+      "Bubble Tea",
+      "Neşeli Bubble",
+      "150.00",
+      "Çilekli bubble tea "
+    ],
+    [
+      "Bubble Tea",
+      "Süslü Bubble",
+      "150.00",
+      "Çook karizmatik süslü bubble içecek"
+    ],
+    [
+      "Bubble Tea",
+      "Meraklı Bubble",
+      "150.00",
+      "The Society Waffle & Chocolate özel bubble tea "
+    ],
+    [
+      "MilkShake",
+      "Çikolatalı MilkShake",
+      "150.00",
+      "Çikolatalı milkshake, kremalı ve soslu"
+    ],
+    [
+      "MilkShake",
+      "Çİlekli MilkShake",
+      "150.00"
+    ],
+    [
+      "MilkShake",
+      "Muzlu MilkShake",
+      "150.00",
+      "Muz ile hazırlanmış milkshake, çilek sosu ve krema ile"
+    ],
+    [
+      "MilkShake",
+      "Vanilya MilkShake",
+      "150.00",
+      "Vanilya ile hazırlanmış milkshake, çilek sosu ve krema ile"
+    ],
+    [
+      "Frozen",
+      "Karpuz Frozen",
+      "150.00",
+      "Karpuzlu soğuk içecek"
+    ],
+    [
+      "Frozen",
+      "Orman Meyveli Frozen",
+      "150.00",
+      "Orman meyveleri ile hazırlanmış frozen içecek"
+    ],
+    [
+      "Frozen",
+      "Karadut Frozen",
+      "150.00",
+      "Karadut ile hazırlanmış frozen içecek"
+    ],
+    [
+      "Frozen",
+      "Ananas Frozen",
+      "150.00",
+      "Ananaslı soğuk içecek "
+    ],
+    [
+      "Frozen",
+      "Çilek Frozen",
+      "150.00",
+      "Çilek ile hazırlanmış frozen içecek"
+    ],
+    [
+      "Dondurma",
+      "Külah Dondurma Çeşitleri",
+      "60.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Cola",
+      "80.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Fanta",
+      "80.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Sprite",
+      "80.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Fusetea ve Çeşitleri",
+      "80.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Cappy ve Çeşitleri",
+      "80.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Redbull",
+      "110.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Soda",
+      "70.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Meyveli Soda",
+      "75.00"
+    ],
+    [
+      "Kutu İçecekler",
+      "Su",
+      "40.00"
+    ]
+  ]
+}

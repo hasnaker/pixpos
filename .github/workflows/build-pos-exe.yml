@@ -1,0 +1,44 @@
+name: Build POS EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'apps/pos/**'
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          
+      - name: Install dependencies
+        run: pnpm install
+        
+      - name: Build POS
+        run: pnpm build
+        working-directory: apps/pos
+        
+      - name: Build Electron EXE
+        run: pnpm electron:build
+        working-directory: apps/pos
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: PIXPOS-Windows
+          path: apps/pos/dist-electron/*.exe
