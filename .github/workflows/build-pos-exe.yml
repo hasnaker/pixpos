@@ -39,4 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PIXPOS-Windows
-          path: apps/pos/dist-electron/*.exe
+          path: |
+            apps/pos/electron-dist/*.exe
+            apps/pos/electron-dist/*Setup*.exe
+            apps/pos/electron-dist/*portable*.exe
