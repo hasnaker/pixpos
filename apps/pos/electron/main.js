@@ -401,3 +401,4 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
     callback(false);
   }
 });
+// Build trigger: Sat Jan 17 14:23:42 +03 2026
