@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "description": "PIXPOS Kasa - Modern POS Sistemi",
   "author": "PIXPOS",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hasnaker/pixpos.git"
+  },
   "type": "module",
   "main": "electron/main.js",
   "scripts": {

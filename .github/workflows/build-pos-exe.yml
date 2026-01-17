@@ -32,10 +32,8 @@ jobs:
         working-directory: apps/pos
         
       - name: Build Electron EXE
-        run: pnpm electron:build
+        run: pnpm electron:build --publish never
         working-directory: apps/pos
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Upload EXE
         uses: actions/upload-artifact@v4
