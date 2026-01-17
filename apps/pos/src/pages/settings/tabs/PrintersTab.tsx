@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Wifi, ChefHat, Receipt, Printer as PrinterIcon, Search, Loader2, Check, X, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Wifi, ChefHat, Receipt, Printer as PrinterIcon, Search, Loader2, Check, X, RefreshCw, Wine } from 'lucide-react';
 import { cardStyle } from '../styles';
 
 // Check if running in Electron - more robust detection
@@ -12,7 +12,7 @@ interface Printer {
   name: string;
   ipAddress?: string;
   port?: number;
-  type: 'kitchen' | 'receipt';
+  type: 'kitchen' | 'bar' | 'receipt';
   isActive: boolean;
 }
 
@@ -30,6 +30,13 @@ interface PrintersTabProps {
   onAddPrinter?: (printer: Partial<Printer>) => void;
 }
 
+// Yazıcı tipi bilgileri
+const PRINTER_TYPES = {
+  kitchen: { label: 'Mutfak', icon: ChefHat, color: '#FF9F0A', bgColor: 'rgba(255,159,10,0.15)', description: 'Yiyecek siparişleri' },
+  bar: { label: 'Bar', icon: Wine, color: '#BF5AF2', bgColor: 'rgba(191,90,242,0.15)', description: 'İçecek siparişleri' },
+  receipt: { label: 'Adisyon', icon: Receipt, color: '#0A84FF', bgColor: 'rgba(10,132,255,0.15)', description: 'Müşteri fişleri' },
+};
+
 export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPrinter }: PrintersTabProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [discoveredPrinters, setDiscoveredPrinters] = useState<DiscoveredPrinter[]>([]);
@@ -37,6 +44,8 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
   const [testingPrinter, setTestingPrinter] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; success: boolean } | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [selectedPrinterForAdd, setSelectedPrinterForAdd] = useState<DiscoveredPrinter | null>(null);
+  const [customName, setCustomName] = useState('');
 
   // Ağda yazıcı tara
   const scanNetwork = async () => {
@@ -80,9 +89,12 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
   };
 
   // Bulunan yazıcıyı ekle
-  const addDiscoveredPrinter = async (discovered: DiscoveredPrinter, type: 'kitchen' | 'receipt') => {
+  const addDiscoveredPrinter = async (discovered: DiscoveredPrinter, type: 'kitchen' | 'bar' | 'receipt', name?: string) => {
+    const typeInfo = PRINTER_TYPES[type];
+    const printerName = name || `${typeInfo.label} (${discovered.ip})`;
+    
     const printerData = {
-      name: type === 'kitchen' ? `Mutfak Yazıcı (${discovered.ip})` : `Fiş Yazıcı (${discovered.ip})`,
+      name: printerName,
       ipAddress: discovered.ip,
       port: discovered.port,
       type,
@@ -101,6 +113,8 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
       if (onAddPrinter) onAddPrinter(printerData);
       // Eklenen yazıcıyı listeden kaldır
       setDiscoveredPrinters(prev => prev.filter(p => p.ip !== discovered.ip));
+      setSelectedPrinterForAdd(null);
+      setCustomName('');
       // Sayfayı yenile
       window.location.reload();
     } catch (error) {
@@ -226,45 +240,101 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {discoveredPrinters.map((printer) => {
                 const alreadyAdded = printers.some(p => p.ipAddress === printer.ip);
+                const isSelected = selectedPrinterForAdd?.ip === printer.ip;
+                
                 return (
                   <div key={printer.ip} style={{
-                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px',
-                    background: 'rgba(255,255,255,0.03)', borderRadius: '10px',
-                    border: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px',
+                    background: isSelected ? 'rgba(10,132,255,0.08)' : 'rgba(255,255,255,0.03)', 
+                    borderRadius: '10px',
+                    border: isSelected ? '1px solid rgba(10,132,255,0.3)' : '1px solid rgba(255,255,255,0.06)',
                   }}>
-                    <div style={{
-                      width: '40px', height: '40px', borderRadius: '10px',
-                      background: 'rgba(48,209,88,0.15)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <PrinterIcon size={20} style={{ color: '#30D158' }} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '14px', fontWeight: 500, color: '#fff' }}>{printer.ip}</p>
-                      <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
-                        Port {printer.port} • {printer.responseTime}ms
-                      </p>
-                    </div>
-                    {alreadyAdded ? (
-                      <span style={{ fontSize: '12px', color: '#30D158', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Check size={14} /> Eklendi
-                      </span>
-                    ) : (
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button onClick={() => addDiscoveredPrinter(printer, 'receipt')} style={{
-                          padding: '6px 12px', borderRadius: '6px', background: 'rgba(10,132,255,0.15)',
-                          border: 'none', color: '#0A84FF', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                          <Receipt size={12} /> Fiş
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{
+                        width: '40px', height: '40px', borderRadius: '10px',
+                        background: 'rgba(48,209,88,0.15)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <PrinterIcon size={20} style={{ color: '#30D158' }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: '14px', fontWeight: 500, color: '#fff' }}>{printer.ip}</p>
+                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                          Port {printer.port} • {printer.responseTime}ms
+                        </p>
+                      </div>
+                      {alreadyAdded ? (
+                        <span style={{ fontSize: '12px', color: '#30D158', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Check size={14} /> Eklendi
+                        </span>
+                      ) : (
+                        <button 
+                          onClick={() => setSelectedPrinterForAdd(isSelected ? null : printer)}
+                          style={{
+                            padding: '6px 12px', borderRadius: '6px', 
+                            background: isSelected ? 'rgba(255,69,58,0.15)' : 'rgba(48,209,88,0.15)',
+                            border: 'none', 
+                            color: isSelected ? '#FF453A' : '#30D158', 
+                            fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                          }}
+                        >
+                          {isSelected ? 'İptal' : 'Ekle'}
                         </button>
-                        <button onClick={() => addDiscoveredPrinter(printer, 'kitchen')} style={{
-                          padding: '6px 12px', borderRadius: '6px', background: 'rgba(255,159,10,0.15)',
-                          border: 'none', color: '#FF9F0A', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: '4px',
-                        }}>
-                          <ChefHat size={12} /> Mutfak
-                        </button>
+                      )}
+                    </div>
+                    
+                    {/* Yazıcı Tipi Seçimi */}
+                    {isSelected && (
+                      <div style={{ 
+                        display: 'flex', flexDirection: 'column', gap: '12px',
+                        padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '8px',
+                      }}>
+                        {/* İsim Girişi */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '4px', display: 'block' }}>
+                            Yazıcı Adı (opsiyonel)
+                          </label>
+                          <input
+                            type="text"
+                            value={customName}
+                            onChange={(e) => setCustomName(e.target.value)}
+                            placeholder="Örn: Mutfak Yazıcı, Bar Yazıcı..."
+                            style={{
+                              width: '100%', padding: '8px 12px', borderRadius: '6px',
+                              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                              color: '#fff', fontSize: '13px', outline: 'none',
+                            }}
+                          />
+                        </div>
+                        
+                        {/* Tip Seçimi */}
+                        <div>
+                          <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'block' }}>
+                            Yazıcı Tipi Seçin
+                          </label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            {(Object.entries(PRINTER_TYPES) as [keyof typeof PRINTER_TYPES, typeof PRINTER_TYPES[keyof typeof PRINTER_TYPES]][]).map(([type, info]) => {
+                              const Icon = info.icon;
+                              return (
+                                <button 
+                                  key={type}
+                                  onClick={() => addDiscoveredPrinter(printer, type, customName || undefined)} 
+                                  style={{
+                                    flex: 1, padding: '12px 8px', borderRadius: '8px', 
+                                    background: info.bgColor,
+                                    border: 'none', color: info.color, 
+                                    fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                                  }}
+                                >
+                                  <Icon size={20} />
+                                  <span>{info.label}</span>
+                                  <span style={{ fontSize: '10px', opacity: 0.7 }}>{info.description}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -287,74 +357,76 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
       ) : (
         /* Printer List */
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {printers.map((printer) => (
-            <div key={printer.id} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
-              {/* Icon */}
-              <div style={{
-                width: '48px', height: '48px', borderRadius: '12px',
-                background: printer.type === 'kitchen' ? 'rgba(255,159,10,0.15)' : 'rgba(10,132,255,0.15)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {printer.type === 'kitchen' 
-                  ? <ChefHat size={24} style={{ color: '#FF9F0A' }} /> 
-                  : <Receipt size={24} style={{ color: '#0A84FF' }} />
-                }
+          {printers.map((printer) => {
+            const typeInfo = PRINTER_TYPES[printer.type as keyof typeof PRINTER_TYPES] || PRINTER_TYPES.receipt;
+            const Icon = typeInfo.icon;
+            
+            return (
+              <div key={printer.id} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
+                {/* Icon */}
+                <div style={{
+                  width: '48px', height: '48px', borderRadius: '12px',
+                  background: typeInfo.bgColor,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Icon size={24} style={{ color: typeInfo.color }} />
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{printer.name}</p>
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
+                    {printer.ipAddress}:{printer.port} • {typeInfo.label}
+                  </p>
+                </div>
+
+                {/* Status */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
+                  borderRadius: '20px', 
+                  background: printer.isActive ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+                }}>
+                  <Wifi size={12} style={{ color: printer.isActive ? '#30D158' : '#FF453A' }} />
+                  <span style={{ fontSize: '12px', fontWeight: 500, color: printer.isActive ? '#30D158' : '#FF453A' }}>
+                    {printer.isActive ? 'Aktif' : 'Pasif'}
+                  </span>
+                </div>
+
+                {/* Test Button */}
+                <button 
+                  onClick={() => handleTest(printer.id)} 
+                  disabled={testingPrinter === printer.id}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', 
+                    background: testResult?.id === printer.id 
+                      ? (testResult.success ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)')
+                      : 'rgba(255,255,255,0.05)',
+                    border: 'none', 
+                    color: testResult?.id === printer.id 
+                      ? (testResult.success ? '#30D158' : '#FF453A')
+                      : '#fff', 
+                    fontSize: '13px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                  }}
+                >
+                  {testingPrinter === printer.id ? (
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : testResult?.id === printer.id ? (
+                    testResult.success ? <Check size={14} /> : <X size={14} />
+                  ) : null}
+                  {testingPrinter === printer.id ? 'Test...' : testResult?.id === printer.id ? (testResult.success ? 'Başarılı' : 'Hata') : 'Test'}
+                </button>
+
+                {/* Delete Button */}
+                <button onClick={() => onDelete(printer.id)} style={{
+                  padding: '8px', borderRadius: '8px', background: 'rgba(255,69,58,0.1)',
+                  border: 'none', color: '#FF453A', cursor: 'pointer',
+                }}>
+                  <Trash2 size={16} />
+                </button>
               </div>
-
-              {/* Info */}
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{printer.name}</p>
-                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
-                  {printer.ipAddress}:{printer.port} • {printer.type === 'kitchen' ? 'Mutfak' : 'Fiş Yazıcı'}
-                </p>
-              </div>
-
-              {/* Status */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
-                borderRadius: '20px', 
-                background: printer.isActive ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
-              }}>
-                <Wifi size={12} style={{ color: printer.isActive ? '#30D158' : '#FF453A' }} />
-                <span style={{ fontSize: '12px', fontWeight: 500, color: printer.isActive ? '#30D158' : '#FF453A' }}>
-                  {printer.isActive ? 'Aktif' : 'Pasif'}
-                </span>
-              </div>
-
-              {/* Test Button */}
-              <button 
-                onClick={() => handleTest(printer.id)} 
-                disabled={testingPrinter === printer.id}
-                style={{
-                  padding: '8px 16px', borderRadius: '8px', 
-                  background: testResult?.id === printer.id 
-                    ? (testResult.success ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)')
-                    : 'rgba(255,255,255,0.05)',
-                  border: 'none', 
-                  color: testResult?.id === printer.id 
-                    ? (testResult.success ? '#30D158' : '#FF453A')
-                    : '#fff', 
-                  fontSize: '13px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                }}
-              >
-                {testingPrinter === printer.id ? (
-                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                ) : testResult?.id === printer.id ? (
-                  testResult.success ? <Check size={14} /> : <X size={14} />
-                ) : null}
-                {testingPrinter === printer.id ? 'Test...' : testResult?.id === printer.id ? (testResult.success ? 'Başarılı' : 'Hata') : 'Test'}
-              </button>
-
-              {/* Delete Button */}
-              <button onClick={() => onDelete(printer.id)} style={{
-                padding: '8px', borderRadius: '8px', background: 'rgba(255,69,58,0.1)',
-                border: 'none', color: '#FF453A', cursor: 'pointer',
-              }}>
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -366,12 +438,11 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
         <p style={{ fontSize: '13px', color: '#0A84FF', fontWeight: 500, marginBottom: '8px' }}>
           💡 Yazıcı Kurulum Rehberi
         </p>
-        <ul style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
-          <li>Yazıcıyı aynı WiFi ağına bağlayın</li>
-          <li>Yazıcının IP adresini yazıcı menüsünden öğrenin (genelde 192.168.x.x)</li>
-          <li>Port genellikle 9100'dür (ESC/POS yazıcılar)</li>
-          <li>"Ağda Yazıcı Tara" ile otomatik bulabilirsiniz</li>
-          <li>Test yazdırma ile bağlantıyı doğrulayın</li>
+        <ul style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', margin: 0, paddingLeft: '16px', lineHeight: 1.8 }}>
+          <li><strong>Mutfak:</strong> Yiyecek siparişleri bu yazıcıya gider</li>
+          <li><strong>Bar:</strong> İçecek siparişleri bu yazıcıya gider</li>
+          <li><strong>Adisyon:</strong> Müşteri fişleri ve hesap çıktıları</li>
+          <li>Kategorilere yazıcı atamak için Ürünler → Kategoriler bölümüne gidin</li>
         </ul>
       </div>
 

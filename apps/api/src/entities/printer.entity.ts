@@ -5,7 +5,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 
-export type PrinterType = 'kitchen' | 'receipt';
+export type PrinterType = 'kitchen' | 'bar' | 'receipt';
 export type ConnectionType = 'tcp' | 'usb';
 
 @Entity('printers')

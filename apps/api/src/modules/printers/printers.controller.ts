@@ -31,7 +31,7 @@ export class PrintersController {
 
   @Get()
   async findAll(
-    @Query('type') type?: 'kitchen' | 'receipt',
+    @Query('type') type?: 'kitchen' | 'bar' | 'receipt',
   ): Promise<Printer[]> {
     if (type) {
       return this.printersService.findByType(type);

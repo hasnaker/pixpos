@@ -25,7 +25,7 @@ export class PrintersService {
     return printer;
   }
 
-  async findByType(type: 'kitchen' | 'receipt'): Promise<Printer[]> {
+  async findByType(type: 'kitchen' | 'bar' | 'receipt'): Promise<Printer[]> {
     return this.printerRepository.find({
       where: { type, isActive: true },
       order: { name: 'ASC' },

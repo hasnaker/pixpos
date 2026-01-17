@@ -279,7 +279,7 @@ export interface Zone {
 export interface Printer {
   id: string;
   name: string;
-  type: 'kitchen' | 'receipt';
+  type: 'kitchen' | 'bar' | 'receipt';
   connectionType: 'tcp' | 'usb';
   ipAddress?: string;
   port?: number;
@@ -373,7 +373,7 @@ export interface UpdateZoneDto {
 
 export interface CreatePrinterDto {
   name: string;
-  type: 'kitchen' | 'receipt';
+  type: 'kitchen' | 'bar' | 'receipt';
   connectionType: 'tcp' | 'usb';
   ipAddress?: string;
   port?: number;
@@ -382,7 +382,7 @@ export interface CreatePrinterDto {
 
 export interface UpdatePrinterDto {
   name?: string;
-  type?: 'kitchen' | 'receipt';
+  type?: 'kitchen' | 'bar' | 'receipt';
   connectionType?: 'tcp' | 'usb';
   ipAddress?: string;
   port?: number;

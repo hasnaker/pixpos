@@ -12,6 +12,9 @@ export interface AutoPrintConfig {
   printKitchenTicketOnOrderSend: boolean;
   kitchenPrinterId?: string;
   
+  // Bar printing
+  barPrinterId?: string;
+  
   // Receipt printing
   printReceiptOnPayment: boolean;
   receiptPrinterId?: string;
