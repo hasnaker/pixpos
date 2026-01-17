@@ -31,3 +31,4 @@ const config: CapacitorConfig = {
 };
 
 export default config;
+// APK Build trigger: Sat Jan 17 14:31:49 +03 2026
