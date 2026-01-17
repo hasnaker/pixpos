@@ -1,16 +1,18 @@
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { cardStyle } from '../styles';
 import type { User } from '../types';
 
 interface UsersTabProps {
   users: User[];
+  isLoading?: boolean;
+  error?: Error | null;
   onAdd: () => void;
   onEdit: (user: User) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string) => void;
 }
 
-export default function UsersTab({ users, onAdd, onEdit, onDelete, onToggleActive }: UsersTabProps) {
+export default function UsersTab({ users, isLoading, error, onAdd, onEdit, onDelete, onToggleActive }: UsersTabProps) {
   const getRoleColor = (role: User['role']) => {
     switch (role) {
       case 'admin': return '#BF5AF2';
@@ -54,8 +56,34 @@ export default function UsersTab({ users, onAdd, onEdit, onDelete, onToggleActiv
         Yeni Kullanıcı
       </button>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '32px' }}>
+          <Loader2 size={24} style={{ color: '#0A84FF', animation: 'spin 1s linear infinite' }} />
+          <span style={{ color: 'rgba(255,255,255,0.6)' }}>Kullanıcılar yükleniyor...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '12px', padding: '20px', background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.3)' }}>
+          <AlertCircle size={20} style={{ color: '#FF453A' }} />
+          <div>
+            <p style={{ color: '#FF453A', fontWeight: 500, marginBottom: '4px' }}>Kullanıcılar yüklenemedi</p>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>{error.message}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && !error && users.length === 0 && (
+        <div style={{ ...cardStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px' }}>
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>Henüz kullanıcı eklenmemiş</span>
+        </div>
+      )}
+
       {/* User List */}
-      {users.map((user) => (
+      {!isLoading && users.map((user) => (
         <div key={user.id} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
           {/* Avatar */}
           <div style={{

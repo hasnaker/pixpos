@@ -147,8 +147,14 @@ async function testPrint(ip, port = 9100) {
 }
 
 function createMainWindow() {
-  // Create the browser window
+  // Get primary display
+  const { screen } = require('electron');
+  const primaryDisplay = screen.getPrimaryDisplay();
+  
+  // Create the browser window on primary display
   mainWindow = new BrowserWindow({
+    x: primaryDisplay.bounds.x,
+    y: primaryDisplay.bounds.y,
     width: 1366,
     height: 768,
     minWidth: 1024,
@@ -159,11 +165,8 @@ function createMainWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
     },
-    // Frameless for kiosk-like experience (optional)
-    // frame: false,
-    // fullscreen: true,
   });
 
   // Load the app
@@ -172,9 +175,25 @@ function createMainWindow() {
     mainWindow.loadURL('http://localhost:3003');
     mainWindow.webContents.openDevTools();
   } else {
-    // Production: load from web URL or local files
-    mainWindow.loadURL(WEB_URL);
+    // Production: load from local dist files (bundled with EXE)
+    // This is more reliable than web loading
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('Loading from local:', indexPath);
+    mainWindow.loadFile(indexPath);
   }
+  
+  // Log any load errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+    console.error('Failed to load:', validatedURL, errorCode, errorDescription);
+  });
+  
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Page loaded successfully');
+  });
+  
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log('Console:', message);
+  });
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -199,10 +218,11 @@ function createCustomerDisplayWindow() {
   // Get all displays
   const { screen } = require('electron');
   const displays = screen.getAllDisplays();
+  const primaryDisplay = screen.getPrimaryDisplay();
   
-  // Find external display (not primary)
+  // Find external display (not primary) - must be different from primary
   const externalDisplay = displays.find((display) => {
-    return display.bounds.x !== 0 || display.bounds.y !== 0;
+    return display.id !== primaryDisplay.id;
   });
 
   if (externalDisplay) {
@@ -222,11 +242,14 @@ function createCustomerDisplayWindow() {
     });
 
     // Load customer display page
-    const displayUrl = isDev 
-      ? 'http://localhost:3003/display'
-      : `${WEB_URL}/display`;
-    
-    customerDisplayWindow.loadURL(displayUrl);
+    if (isDev) {
+      customerDisplayWindow.loadURL('http://localhost:3003/display');
+    } else {
+      // Production: load from local dist
+      customerDisplayWindow.loadFile(path.join(__dirname, '../dist/index.html'), {
+        hash: '/display'
+      });
+    }
 
     customerDisplayWindow.on('closed', () => {
       customerDisplayWindow = null;
@@ -372,6 +395,82 @@ ipcMain.handle('get-local-subnet', () => {
   return detectSubnet();
 });
 
+// ============ ÖKC (Ingenico) IPC HANDLERS ============
+
+/**
+ * Test ÖKC connection via TCP
+ */
+ipcMain.handle('okc-test-connection', async (event, ip, port) => {
+  return new Promise((resolve) => {
+    const startTime = Date.now();
+    const socket = new net.Socket();
+    const targetPort = port || 20001;
+
+    socket.setTimeout(5000);
+
+    socket.on('connect', () => {
+      const responseTime = Date.now() - startTime;
+      socket.destroy();
+      console.log(`ÖKC connected: ${ip}:${targetPort} (${responseTime}ms)`);
+      resolve({ success: true, responseTime });
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      console.log(`ÖKC timeout: ${ip}:${targetPort}`);
+      resolve({ success: false, error: 'Bağlantı zaman aşımı' });
+    });
+
+    socket.on('error', (err) => {
+      socket.destroy();
+      console.log(`ÖKC error: ${ip}:${targetPort} - ${err.message}`);
+      resolve({ success: false, error: err.message });
+    });
+
+    console.log(`Testing ÖKC connection: ${ip}:${targetPort}`);
+    socket.connect(targetPort, ip);
+  });
+});
+
+/**
+ * Scan common ÖKC ports
+ */
+ipcMain.handle('okc-scan-ports', async (event, ip) => {
+  const commonPorts = [20001, 9001, 4100, 8080, 9100, 5000];
+  const results = [];
+
+  for (const port of commonPorts) {
+    const result = await new Promise((resolve) => {
+      const socket = new net.Socket();
+      socket.setTimeout(2000);
+
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve({ port, open: true });
+      });
+
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve({ port, open: false });
+      });
+
+      socket.on('error', () => {
+        socket.destroy();
+        resolve({ port, open: false });
+      });
+
+      socket.connect(port, ip);
+    });
+
+    if (result.open) {
+      results.push(result.port);
+    }
+  }
+
+  console.log(`ÖKC port scan for ${ip}: open ports = ${results.join(', ') || 'none'}`);
+  return results;
+});
+
 // This method will be called when Electron has finished initialization
 app.whenReady().then(() => {
   // Set custom User-Agent for CloudFront bypass
@@ -380,6 +479,16 @@ app.whenReady().then(() => {
   defaultSession.setUserAgent(`${originalUA} PIXPOS-POS Electron`);
   
   createMainWindow();
+
+  // Auto-open customer display if second monitor is available
+  setTimeout(() => {
+    const { screen } = require('electron');
+    const displays = screen.getAllDisplays();
+    if (displays.length > 1 && !customerDisplayWindow) {
+      console.log('Second monitor detected, opening customer display...');
+      createCustomerDisplayWindow();
+    }
+  }, 2000); // Wait 2 seconds for app to fully load
 
   app.on('activate', () => {
     // On macOS re-create window when dock icon is clicked

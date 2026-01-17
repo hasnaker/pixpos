@@ -5,7 +5,8 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH || '/',
+  // Use './' for Electron builds (file:// protocol), '/' for web
+  base: process.env.ELECTRON_BUILD === 'true' ? './' : (process.env.VITE_BASE_PATH || '/'),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

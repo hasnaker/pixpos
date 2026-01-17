@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Plus, Trash2, Wifi, ChefHat, Receipt, Printer as PrinterIcon, Search, Loader2, Check, X, RefreshCw } from 'lucide-react';
 import { cardStyle } from '../styles';
 
-// Check if running in Electron
-const isElectron = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron;
+// Check if running in Electron - more robust detection
+const isElectron = typeof window !== 'undefined' && 
+  typeof (window as any).electronAPI !== 'undefined' && 
+  (window as any).electronAPI?.isElectron === true;
 
 interface Printer {
   id: string;

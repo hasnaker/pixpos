@@ -21,10 +21,14 @@ export class UsersController {
    * Tüm kullanıcıları listele
    * GET /api/users
    * GET /api/users?includeInactive=true
+   * GET /api/users?role=waiter
    */
   @Get()
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.usersService.findAll(includeInactive === 'true');
+  findAll(
+    @Query('includeInactive') includeInactive?: string,
+    @Query('role') role?: string,
+  ) {
+    return this.usersService.findAll(includeInactive === 'true', role);
   }
 
   /**

@@ -1,34 +1,54 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Trash2, Plus, Check, ShoppingBag, Search, Package, Clock, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Check, ShoppingBag, Search, Package, Clock, ChevronDown, ChevronUp, Send, ShoppingCart, X } from 'lucide-react';
 import { tablesApi, productsApi, categoriesApi, ordersApi } from '@/services/api';
 import type { Product } from '@/services/api';
 
-// Responsive breakpoint hook
-function useIsPortrait() {
-  const [isPortrait, setIsPortrait] = useState(window.innerWidth < 900);
+// Responsive breakpoint hook - improved for phone/tablet
+function useDeviceType() {
+  const [device, setDevice] = useState<'phone' | 'tablet-portrait' | 'tablet-landscape'>('phone');
   
   useEffect(() => {
-    const handleResize = () => setIsPortrait(window.innerWidth < 900);
+    const handleResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const isLandscape = w > h;
+      
+      if (w < 600) {
+        setDevice('phone');
+      } else if (isLandscape) {
+        setDevice('tablet-landscape');
+      } else {
+        setDevice('tablet-portrait');
+      }
+    };
+    handleResize();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, []);
   
-  return isPortrait;
+  return device;
 }
 
 export default function OrderScreen() {
   const { tableId } = useParams<{ tableId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isPortrait = useIsPortrait();
+  const device = useDeviceType();
+  const isPhone = device === 'phone';
+  const isLandscape = device === 'tablet-landscape';
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSentSuccess, setShowSentSuccess] = useState(false);
+  const [showCart, setShowCart] = useState(false); // Mobile cart drawer
 
   const { data: table } = useQuery({
     queryKey: ['table', tableId],
@@ -178,14 +198,19 @@ export default function OrderScreen() {
   const totalAmount = activeOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
   const totalItems = activeOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
 
+  // Layout helpers
+  const showSideBySide = isLandscape;
+
   return (
     <div style={{
       display: 'flex',
-      flexDirection: isPortrait ? 'column' : 'row',
+      flexDirection: showSideBySide ? 'row' : 'column',
       height: '100vh',
       background: '#000',
       fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
-      overflow: isPortrait ? 'auto' : 'hidden',
+      overflow: 'hidden',
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: isPhone ? '0' : 'env(safe-area-inset-bottom)',
     }}>
       {/* Success Toast - Item Added */}
       {showSuccess && (
@@ -237,19 +262,21 @@ export default function OrderScreen() {
         display: 'flex',
         flexDirection: 'column',
         background: '#0A0A0A',
-        minHeight: isPortrait ? 'auto' : '100vh',
+        minHeight: 0,
+        overflow: 'hidden',
       }}>
         {/* Header */}
         <header style={{
-          height: '64px',
+          minHeight: '56px',
           background: 'rgba(20,20,20,0.95)',
           backdropFilter: 'blur(40px)',
           WebkitBackdropFilter: 'blur(40px)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           alignItems: 'center',
-          gap: '16px',
-          padding: '0 20px',
+          gap: '12px',
+          padding: '0 16px',
+          flexShrink: 0,
         }}>
           <button
             onClick={() => navigate('/tables')}
@@ -264,25 +291,26 @@ export default function OrderScreen() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              flexShrink: 0,
             }}
           >
             <ArrowLeft size={20} />
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ color: '#fff', fontSize: '18px', fontWeight: 600, margin: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ color: '#fff', fontSize: '17px', fontWeight: 600, margin: 0 }}>
               {table?.name || 'Masa'}
             </h1>
             {table?.zone && (
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: '2px 0 0' }}>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '2px 0 0' }}>
                 {table.zone}
               </p>
             )}
           </div>
-          {totalItems > 0 && (
+          {!isPhone && totalItems > 0 && (
             <div style={{
               background: 'rgba(48,209,88,0.15)',
               color: '#30D158',
-              padding: '8px 14px',
+              padding: '6px 12px',
               borderRadius: '10px',
               fontSize: '14px',
               fontWeight: 600,
@@ -293,17 +321,17 @@ export default function OrderScreen() {
         </header>
 
         {/* Search */}
-        <div style={{ padding: '16px 20px 12px' }}>
+        <div style={{ padding: '12px 16px 8px', flexShrink: 0 }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '12px',
-            padding: '12px 16px',
+            gap: '10px',
+            padding: '10px 14px',
             background: 'rgba(255,255,255,0.06)',
             borderRadius: '12px',
             border: '1px solid rgba(255,255,255,0.08)',
           }}>
-            <Search size={18} color="rgba(255,255,255,0.4)" />
+            <Search size={16} color="rgba(255,255,255,0.4)" />
             <input
               type="text"
               placeholder="Ürün ara..."
@@ -318,15 +346,37 @@ export default function OrderScreen() {
                 outline: 'none',
               }}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <X size={12} color="rgba(255,255,255,0.6)" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Categories - Large Touch Targets */}
+        {/* Categories - Horizontal Scroll on Phone */}
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+          display: 'flex',
           gap: '8px',
-          padding: '0 16px 16px',
+          padding: '0 16px 12px',
+          overflowX: 'auto',
+          flexShrink: 0,
+          WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}>
           {activeCategories.map(cat => {
             const isSelected = selectedCategory === cat.id;
@@ -335,8 +385,8 @@ export default function OrderScreen() {
                 key={cat.id}
                 onClick={() => { setSelectedCategory(cat.id); setSearchQuery(''); }}
                 style={{
-                  padding: '14px 8px',
-                  borderRadius: '12px',
+                  padding: isPhone ? '10px 16px' : '12px 20px',
+                  borderRadius: '10px',
                   border: isSelected ? '2px solid #0A84FF' : '1px solid rgba(255,255,255,0.1)',
                   background: isSelected 
                     ? 'rgba(10,132,255,0.2)' 
@@ -346,11 +396,8 @@ export default function OrderScreen() {
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.1s ease',
-                  textAlign: 'center',
-                  minHeight: '48px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
                 }}
               >
                 {cat.name}
@@ -363,7 +410,8 @@ export default function OrderScreen() {
         <div style={{
           flex: 1,
           overflow: 'auto',
-          padding: '0 20px 20px',
+          padding: '0 16px',
+          paddingBottom: isPhone ? '100px' : '16px', // Space for FAB on phone
         }}>
           {filteredProducts.length === 0 ? (
             <div style={{
@@ -374,14 +422,18 @@ export default function OrderScreen() {
               height: '200px',
               color: 'rgba(255,255,255,0.4)',
             }}>
-              <Package size={48} style={{ marginBottom: '12px', opacity: 0.5 }} />
-              <p style={{ fontSize: '15px', margin: 0 }}>Ürün bulunamadı</p>
+              <Package size={40} style={{ marginBottom: '12px', opacity: 0.5 }} />
+              <p style={{ fontSize: '14px', margin: 0 }}>Ürün bulunamadı</p>
             </div>
           ) : (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: '12px',
+              gridTemplateColumns: isPhone 
+                ? 'repeat(2, 1fr)' 
+                : isLandscape 
+                  ? 'repeat(auto-fill, minmax(130px, 1fr))'
+                  : 'repeat(auto-fill, minmax(140px, 1fr))',
+              gap: isPhone ? '10px' : '12px',
             }}>
               {filteredProducts.map(product => (
                 <button
@@ -391,8 +443,8 @@ export default function OrderScreen() {
                     position: 'relative',
                     background: 'rgba(255,255,255,0.06)',
                     border: '1px solid rgba(255,255,255,0.08)',
-                    borderRadius: '16px',
-                    padding: '16px 12px',
+                    borderRadius: '14px',
+                    padding: isPhone ? '12px 10px' : '14px 12px',
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     textAlign: 'center',
@@ -400,10 +452,10 @@ export default function OrderScreen() {
                 >
                   {/* Product Image or Placeholder */}
                   <div style={{
-                    width: '64px',
-                    height: '64px',
-                    borderRadius: '12px',
-                    margin: '0 auto 12px',
+                    width: isPhone ? '48px' : '56px',
+                    height: isPhone ? '48px' : '56px',
+                    borderRadius: '10px',
+                    margin: '0 auto 10px',
                     overflow: 'hidden',
                     background: 'rgba(255,255,255,0.08)',
                     display: 'flex',
@@ -417,16 +469,16 @@ export default function OrderScreen() {
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     ) : (
-                      <span style={{ fontSize: '28px' }}>☕</span>
+                      <span style={{ fontSize: isPhone ? '22px' : '26px' }}>☕</span>
                     )}
                   </div>
 
                   {/* Product Name */}
                   <div style={{
-                    fontSize: '13px',
+                    fontSize: isPhone ? '12px' : '13px',
                     fontWeight: 500,
                     color: '#fff',
-                    marginBottom: '6px',
+                    marginBottom: '4px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -436,7 +488,7 @@ export default function OrderScreen() {
 
                   {/* Price */}
                   <div style={{
-                    fontSize: '15px',
+                    fontSize: isPhone ? '14px' : '15px',
                     fontWeight: 700,
                     color: '#0A84FF',
                   }}>
@@ -446,17 +498,17 @@ export default function OrderScreen() {
                   {/* Add indicator */}
                   <div style={{
                     position: 'absolute',
-                    bottom: '8px',
-                    right: '8px',
-                    width: '24px',
-                    height: '24px',
+                    bottom: '6px',
+                    right: '6px',
+                    width: '22px',
+                    height: '22px',
                     borderRadius: '50%',
                     background: 'rgba(48,209,88,0.2)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <Plus size={14} color="#30D158" />
+                    <Plus size={12} color="#30D158" />
                   </div>
                 </button>
               ))}
@@ -465,19 +517,133 @@ export default function OrderScreen() {
         </div>
       </div>
 
-      {/* Right Panel - Order History (Bottom on Portrait) */}
+      {/* Phone: Floating Cart Button */}
+      {isPhone && totalItems > 0 && !showCart && (
+        <button
+          onClick={() => setShowCart(true)}
+          style={{
+            position: 'fixed',
+            bottom: 'calc(24px + env(safe-area-inset-bottom))',
+            right: '16px',
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #30D158, #28a745)',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(48,209,88,0.4)',
+            zIndex: 100,
+          }}
+        >
+          <ShoppingCart size={24} />
+          <div style={{
+            position: 'absolute',
+            top: '-4px',
+            right: '-4px',
+            background: '#FF453A',
+            color: '#fff',
+            fontSize: '12px',
+            fontWeight: 700,
+            minWidth: '22px',
+            height: '22px',
+            borderRadius: '11px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0 6px',
+          }}>
+            {totalItems}
+          </div>
+        </button>
+      )}
+
+      {/* Phone: Send to Kitchen FAB (when cart is closed and has open order) */}
+      {isPhone && currentOpenOrder && currentOpenOrder.items.length > 0 && !showCart && (
+        <button
+          onClick={handleSendToKitchen}
+          disabled={sendToKitchen.isPending}
+          style={{
+            position: 'fixed',
+            bottom: 'calc(24px + env(safe-area-inset-bottom))',
+            left: '16px',
+            right: '96px',
+            height: '56px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            boxShadow: '0 4px 20px rgba(10,132,255,0.4)',
+            zIndex: 100,
+            fontSize: '15px',
+            fontWeight: 600,
+          }}
+        >
+          <Send size={20} />
+          {sendToKitchen.isPending ? 'Gönderiliyor...' : `Mutfağa Gönder • ${formatPrice(totalAmount)}`}
+        </button>
+      )}
+
+      {/* Phone: Cart Drawer Overlay */}
+      {isPhone && showCart && (
+        <div 
+          onClick={() => setShowCart(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 200,
+          }}
+        />
+      )}
+
+      {/* Right Panel - Order History (Drawer on Phone) */}
       <div style={{
-        width: isPortrait ? '100%' : '380px',
+        width: isPhone ? '100%' : showSideBySide ? '340px' : '100%',
+        height: isPhone ? '85vh' : showSideBySide ? '100vh' : '45vh',
         display: 'flex',
         flexDirection: 'column',
         background: '#1C1C1E',
-        borderLeft: isPortrait ? 'none' : '1px solid rgba(255,255,255,0.06)',
-        borderTop: isPortrait ? '1px solid rgba(255,255,255,0.06)' : 'none',
-        maxHeight: isPortrait ? '50vh' : '100vh',
+        borderLeft: showSideBySide ? '1px solid rgba(255,255,255,0.06)' : 'none',
+        borderTop: !showSideBySide && !isPhone ? '1px solid rgba(255,255,255,0.06)' : 'none',
+        position: isPhone ? 'fixed' : 'relative',
+        bottom: isPhone ? 0 : 'auto',
+        left: isPhone ? 0 : 'auto',
+        right: isPhone ? 0 : 'auto',
+        transform: isPhone ? (showCart ? 'translateY(0)' : 'translateY(100%)') : 'none',
+        transition: 'transform 0.3s ease',
+        zIndex: isPhone ? 300 : 1,
+        borderTopLeftRadius: isPhone ? '20px' : 0,
+        borderTopRightRadius: isPhone ? '20px' : 0,
+        paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
+        {/* Drag Handle for Phone */}
+        {isPhone && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '12px',
+          }}>
+            <div style={{
+              width: '36px',
+              height: '4px',
+              background: 'rgba(255,255,255,0.3)',
+              borderRadius: '2px',
+            }} />
+          </div>
+        )}
+
         {/* Header */}
         <div style={{
-          padding: '20px',
+          padding: isPhone ? '8px 20px 16px' : '16px 20px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           alignItems: 'center',
@@ -498,6 +664,25 @@ export default function OrderScreen() {
             }}>
               {activeOrders.some(o => o.status === 'sent') ? 'Sipariş Alındı' : 'Açık'}
             </span>
+          )}
+          {isPhone && (
+            <button
+              onClick={() => setShowCart(false)}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <X size={18} />
+            </button>
           )}
         </div>
 
@@ -700,7 +885,7 @@ export default function OrderScreen() {
         {/* Footer - Total */}
         {activeOrders.length > 0 && (
           <div style={{
-            padding: '20px',
+            padding: '16px 20px',
             borderTop: '1px solid rgba(255,255,255,0.06)',
             background: 'rgba(0,0,0,0.3)',
           }}>
@@ -708,12 +893,12 @@ export default function OrderScreen() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '16px',
+              marginBottom: '12px',
             }}>
               <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
                 Toplam ({totalItems} ürün)
               </span>
-              <span style={{ color: '#fff', fontSize: '24px', fontWeight: 700 }}>
+              <span style={{ color: '#fff', fontSize: '22px', fontWeight: 700 }}>
                 {formatPrice(totalAmount)}
               </span>
             </div>
@@ -721,16 +906,19 @@ export default function OrderScreen() {
             {/* Send to Kitchen Button - only if there's an open order with items */}
             {currentOpenOrder && currentOpenOrder.items.length > 0 && (
               <button
-                onClick={handleSendToKitchen}
+                onClick={() => {
+                  handleSendToKitchen();
+                  if (isPhone) setShowCart(false);
+                }}
                 disabled={sendToKitchen.isPending}
                 style={{
                   width: '100%',
-                  padding: '16px',
+                  padding: '14px',
                   borderRadius: '14px',
                   background: 'linear-gradient(135deg, #30D158, #28a745)',
                   border: 'none',
                   color: '#fff',
-                  fontSize: '16px',
+                  fontSize: '15px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
@@ -739,10 +927,10 @@ export default function OrderScreen() {
                   gap: '10px',
                   boxShadow: '0 0 30px rgba(48,209,88,0.3)',
                   opacity: sendToKitchen.isPending ? 0.7 : 1,
-                  marginBottom: '12px',
+                  marginBottom: '10px',
                 }}
               >
-                <Send size={20} />
+                <Send size={18} />
                 {sendToKitchen.isPending ? 'Gönderiliyor...' : 'Mutfağa Gönder'}
               </button>
             )}
@@ -753,21 +941,21 @@ export default function OrderScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              padding: '12px',
+              padding: '10px',
               background: currentOpenOrder 
                 ? 'rgba(10,132,255,0.15)' 
                 : 'rgba(48,209,88,0.15)',
-              borderRadius: '12px',
+              borderRadius: '10px',
             }}>
-              <Check size={18} color={currentOpenOrder ? '#0A84FF' : '#30D158'} />
+              <Check size={16} color={currentOpenOrder ? '#0A84FF' : '#30D158'} />
               <span style={{ 
                 color: currentOpenOrder ? '#0A84FF' : '#30D158',
-                fontSize: '14px',
+                fontSize: '13px',
                 fontWeight: 500,
               }}>
                 {currentOpenOrder 
                   ? 'Sipariş açık - Ürün ekleyebilirsiniz'
-                  : 'Sipariş alındı - Yeni ürün ekleyebilirsiniz'}
+                  : 'Sipariş alındı'}
               </span>
             </div>
           </div>

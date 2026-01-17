@@ -49,10 +49,17 @@ export function useSettingsStorage() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
 
   // Fetch users from API
-  const { data: apiUsers = [] } = useQuery({
-    queryKey: ['users', 'all'],
+  const { data: apiUsers = [], isLoading: usersLoading, error: usersError } = useQuery({
+    queryKey: ['users'],
     queryFn: () => usersApi.getAll(true), // Include inactive users
+    retry: 3,
+    retryDelay: 1000,
   });
+
+  // Log errors for debugging
+  if (usersError) {
+    console.error('Users fetch error:', usersError);
+  }
 
   // Convert API users to local format
   const users: User[] = apiUsers.map(apiUserToLocal);
@@ -61,7 +68,12 @@ export function useSettingsStorage() {
   const createUserMutation = useMutation({
     mutationFn: (data: CreateUserDto) => usersApi.create(data),
     onSuccess: () => {
+      console.log('User created successfully');
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('User creation failed:', error);
+      alert(`Kullanıcı eklenemedi: ${error.message}`);
     },
   });
 
@@ -69,7 +81,12 @@ export function useSettingsStorage() {
   const updateUserMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserDto }) => usersApi.update(id, data),
     onSuccess: () => {
+      console.log('User updated successfully');
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('User update failed:', error);
+      alert(`Kullanıcı güncellenemedi: ${error.message}`);
     },
   });
 
@@ -77,7 +94,12 @@ export function useSettingsStorage() {
   const deleteUserMutation = useMutation({
     mutationFn: (id: string) => usersApi.delete(id),
     onSuccess: () => {
+      console.log('User deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: (error) => {
+      console.error('User deletion failed:', error);
+      alert(`Kullanıcı silinemedi: ${error.message}`);
     },
   });
 
@@ -141,6 +163,8 @@ export function useSettingsStorage() {
     devices,
     setDevices,
     users,
+    usersLoading,
+    usersError,
     saveStatus,
     addUser,
     updateUser,

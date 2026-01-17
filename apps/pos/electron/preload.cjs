@@ -14,11 +14,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkPrinter: (ip, port) => ipcRenderer.invoke('check-printer', ip, port),
   getLocalSubnet: () => ipcRenderer.invoke('get-local-subnet'),
   
+  // ÖKC (Ingenico) - Local TCP connection
+  okcTestConnection: (ip, port) => ipcRenderer.invoke('okc-test-connection', ip, port),
+  okcScanPorts: (ip) => ipcRenderer.invoke('okc-scan-ports', ip),
+  
   // Platform info
   platform: process.platform,
   
   // App version
-  version: require('../package.json').version,
+  version: '1.0.0',
   
   // Check if running in Electron
   isElectron: true,

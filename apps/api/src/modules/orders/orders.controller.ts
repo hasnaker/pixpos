@@ -187,6 +187,19 @@ export class OrdersController {
   }
 
   /**
+   * POST /api/orders/:id/print-receipt
+   * Print receipt (adisyon) without completing payment
+   * For manual receipt printing from order screen
+   */
+  @Post(':id/print-receipt')
+  async printReceipt(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('waiterName') waiterName?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.ordersService.printReceipt(id, waiterName);
+  }
+
+  /**
    * GET /api/orders/table/:tableId
    * Get orders by table
    */

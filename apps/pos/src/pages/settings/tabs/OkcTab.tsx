@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Wifi, WifiOff, CreditCard, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, AlertTriangle, Search } from 'lucide-react';
+
+// Electron API type
+declare global {
+  interface Window {
+    electronAPI?: {
+      okcTestConnection: (ip: string, port: number) => Promise<{ success: boolean; responseTime?: number; error?: string }>;
+      okcScanPorts: (ip: string) => Promise<number[]>;
+      isElectron: boolean;
+    };
+  }
+}
 
 interface OkcConfig {
   ip: string;
@@ -16,10 +27,11 @@ interface ConnectionStatus {
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
 
 export function OkcTab() {
   const [config, setConfig] = useState<OkcConfig>({
-    ip: '192.168.1.100',
+    ip: '192.168.1.116', // Queen Waffle Ingenico IP
     port: 20001,
     timeout: 60000,
     terminalId: '',
@@ -27,6 +39,8 @@ export function OkcTab() {
   const [status, setStatus] = useState<ConnectionStatus>({ connected: false });
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [openPorts, setOpenPorts] = useState<number[]>([]);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Load config on mount
@@ -65,27 +79,83 @@ export function OkcTab() {
     }
   };
 
+  // Scan ports on the device (Electron only)
+  const scanPorts = async () => {
+    if (!isElectron || !window.electronAPI) {
+      setTestResult({ success: false, message: 'Port tarama sadece EXE uygulamasında çalışır' });
+      return;
+    }
+
+    setScanning(true);
+    setOpenPorts([]);
+    setTestResult(null);
+
+    try {
+      const ports = await window.electronAPI.okcScanPorts(config.ip);
+      setOpenPorts(ports);
+      
+      if (ports.length > 0) {
+        setTestResult({ 
+          success: true, 
+          message: `Açık portlar: ${ports.join(', ')}` 
+        });
+        // Auto-select first open port
+        if (!ports.includes(config.port) && ports.length > 0) {
+          setConfig(prev => ({ ...prev, port: ports[0] }));
+        }
+      } else {
+        setTestResult({ 
+          success: false, 
+          message: `${config.ip} adresinde açık port bulunamadı. Cihaz kapalı veya ağda olmayabilir.` 
+        });
+      }
+    } catch (e) {
+      setTestResult({ success: false, message: 'Port tarama hatası' });
+    } finally {
+      setScanning(false);
+    }
+  };
+
   const testConnection = async () => {
     setTesting(true);
     setTestResult(null);
+
     try {
-      const res = await fetch(`${API_URL}/api/okc/test`, { method: 'POST' });
-      const data = await res.json();
-      setStatus({
-        connected: data.success,
-        responseTime: data.responseTime,
-        error: data.error,
-        lastChecked: new Date(),
-      });
-      setTestResult({
-        success: data.success,
-        message: data.success 
-          ? `Bağlantı başarılı (${data.responseTime}ms)` 
-          : `Bağlantı hatası: ${data.error}`,
-      });
+      // Use Electron IPC for local TCP connection (preferred)
+      if (isElectron && window.electronAPI) {
+        const result = await window.electronAPI.okcTestConnection(config.ip, config.port);
+        setStatus({
+          connected: result.success,
+          responseTime: result.responseTime,
+          error: result.error,
+          lastChecked: new Date(),
+        });
+        setTestResult({
+          success: result.success,
+          message: result.success 
+            ? `Bağlantı başarılı (${result.responseTime}ms)` 
+            : `Bağlantı hatası: ${result.error}`,
+        });
+      } else {
+        // Fallback to cloud API (won't work for local network)
+        const res = await fetch(`${API_URL}/api/okc/test`, { method: 'POST' });
+        const data = await res.json();
+        setStatus({
+          connected: data.success,
+          responseTime: data.responseTime,
+          error: data.error,
+          lastChecked: new Date(),
+        });
+        setTestResult({
+          success: data.success,
+          message: data.success 
+            ? `Bağlantı başarılı (${data.responseTime}ms)` 
+            : `Bağlantı hatası: ${data.error}`,
+        });
+      }
     } catch (e) {
-      setStatus({ connected: false, error: 'API hatası', lastChecked: new Date() });
-      setTestResult({ success: false, message: 'API bağlantı hatası' });
+      setStatus({ connected: false, error: 'Bağlantı hatası', lastChecked: new Date() });
+      setTestResult({ success: false, message: 'Bağlantı testi başarısız' });
     } finally {
       setTesting(false);
     }
@@ -121,6 +191,28 @@ export function OkcTab() {
 
   return (
     <div style={{ maxWidth: '800px' }}>
+      {/* Electron Warning */}
+      {!isElectron && (
+        <div style={{
+          ...cardStyle,
+          background: 'rgba(255, 69, 58, 0.08)',
+          border: '1px solid rgba(255, 69, 58, 0.2)',
+          marginBottom: '20px',
+        }}>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <AlertTriangle size={20} style={{ color: '#FF453A', flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <h4 style={{ fontSize: '15px', fontWeight: 600, color: '#FF453A', margin: '0 0 8px' }}>
+                Web Tarayıcı Modu
+              </h4>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', margin: 0 }}>
+                ÖKC bağlantı testi sadece EXE uygulamasında çalışır. Web tarayıcısından yerel ağdaki cihazlara erişilemez.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Status Card */}
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -152,22 +244,71 @@ export function OkcTab() {
               </p>
             </div>
           </div>
-          <button
-            onClick={testConnection}
-            disabled={testing}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '10px 20px', borderRadius: '10px',
-              background: '#0A84FF', border: 'none',
-              color: '#fff', fontSize: '14px', fontWeight: 500,
-              cursor: testing ? 'not-allowed' : 'pointer',
-              opacity: testing ? 0.7 : 1,
-            }}
-          >
-            <RefreshCw size={16} style={{ animation: testing ? 'spin 1s linear infinite' : 'none' }} />
-            {testing ? 'Test ediliyor...' : 'Bağlantı Testi'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {isElectron && (
+              <button
+                onClick={scanPorts}
+                disabled={scanning}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  padding: '10px 16px', borderRadius: '10px',
+                  background: 'rgba(255,255,255,0.08)', border: 'none',
+                  color: '#fff', fontSize: '14px', fontWeight: 500,
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  opacity: scanning ? 0.7 : 1,
+                }}
+              >
+                <Search size={16} style={{ animation: scanning ? 'spin 1s linear infinite' : 'none' }} />
+                {scanning ? 'Taranıyor...' : 'Port Tara'}
+              </button>
+            )}
+            <button
+              onClick={testConnection}
+              disabled={testing}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '10px 20px', borderRadius: '10px',
+                background: '#0A84FF', border: 'none',
+                color: '#fff', fontSize: '14px', fontWeight: 500,
+                cursor: testing ? 'not-allowed' : 'pointer',
+                opacity: testing ? 0.7 : 1,
+              }}
+            >
+              <RefreshCw size={16} style={{ animation: testing ? 'spin 1s linear infinite' : 'none' }} />
+              {testing ? 'Test ediliyor...' : 'Bağlantı Testi'}
+            </button>
+          </div>
         </div>
+
+        {/* Open Ports */}
+        {openPorts.length > 0 && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '12px 16px', borderRadius: '10px',
+            background: 'rgba(10, 132, 255, 0.1)',
+            border: '1px solid rgba(10, 132, 255, 0.3)',
+            marginBottom: '12px',
+          }}>
+            <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
+              Açık Portlar:
+            </span>
+            {openPorts.map(port => (
+              <button
+                key={port}
+                onClick={() => setConfig(prev => ({ ...prev, port }))}
+                style={{
+                  padding: '4px 12px', borderRadius: '6px',
+                  background: config.port === port ? '#0A84FF' : 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  color: '#fff', fontSize: '13px', fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                {port}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Test Result */}
         {testResult && (

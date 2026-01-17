@@ -698,4 +698,34 @@ export class OrdersService {
 
     return order;
   }
+
+  /**
+   * Print receipt (adisyon) without completing payment
+   * For manual receipt printing from order screen
+   */
+  async printReceipt(orderId: string, waiterName?: string): Promise<{ success: boolean; message: string }> {
+    const order = await this.findOne(orderId);
+
+    if (!order.items || order.items.length === 0) {
+      return { success: false, message: 'Boş sipariş için adisyon yazdırılamaz' };
+    }
+
+    if (!this.autoPrintService) {
+      return { success: false, message: 'Yazdırma servisi mevcut değil' };
+    }
+
+    try {
+      // Use 'cash' as default payment method for preview receipt
+      const success = await this.autoPrintService.printReceipt(order, 'cash', undefined, waiterName);
+      
+      if (success) {
+        return { success: true, message: 'Adisyon yazdırma kuyruğuna eklendi' };
+      } else {
+        return { success: false, message: 'Yazıcı bulunamadı veya aktif değil' };
+      }
+    } catch (error) {
+      console.error('Print receipt error:', error);
+      return { success: false, message: 'Yazdırma hatası' };
+    }
+  }
 }

@@ -20,8 +20,17 @@ export class UsersService {
   /**
    * Tüm kullanıcıları getir
    */
-  async findAll(includeInactive = false): Promise<User[]> {
-    const where = includeInactive ? {} : { isActive: true };
+  async findAll(includeInactive = false, role?: string): Promise<User[]> {
+    const where: any = {};
+    
+    if (!includeInactive) {
+      where.isActive = true;
+    }
+    
+    if (role) {
+      where.role = role;
+    }
+    
     return this.userRepository.find({
       where,
       order: { name: 'ASC' },

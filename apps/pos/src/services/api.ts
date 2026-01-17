@@ -1,4 +1,29 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+// Detect if running in Electron
+const isElectron = typeof window !== 'undefined' && (
+  window.location.protocol === 'file:' || 
+  navigator.userAgent.includes('Electron')
+);
+
+// For Electron, always use the production API URL
+// For web, use environment variable or relative path
+const API_BASE = isElectron 
+  ? 'https://api.pixpos.cloud/api'
+  : (import.meta.env.VITE_API_URL || '/api');
+
+// Demo data only used as fallback when API is unreachable
+const DEMO_USERS: User[] = [
+  { id: '1', name: 'Demo Admin', role: 'admin', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
+  { id: '2', name: 'Demo Kasiyer', role: 'cashier', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
+  { id: '3', name: 'Demo Garson', role: 'waiter', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
+];
+
+const DEMO_TABLES: Table[] = [
+  { id: '1', name: 'Masa 1', zone: 'Salon', capacity: 4, status: 'empty', sortOrder: 1, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '2', name: 'Masa 2', zone: 'Salon', capacity: 4, status: 'empty', sortOrder: 2, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '3', name: 'Masa 3', zone: 'Salon', capacity: 6, status: 'empty', sortOrder: 3, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '4', name: 'Masa 4', zone: 'Teras', capacity: 4, status: 'empty', sortOrder: 4, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '5', name: 'Masa 5', zone: 'Teras', capacity: 2, status: 'empty', sortOrder: 5, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+];
 
 async function request<T>(
   endpoint: string,
@@ -391,6 +416,10 @@ export const ordersApi = {
     }),
   sendToKitchen: (orderId: string) =>
     request<Order>(`/orders/${orderId}/send-to-kitchen`, {
+      method: 'POST',
+    }),
+  printReceipt: (orderId: string) =>
+    request<{ success: boolean; message: string }>(`/orders/${orderId}/print-receipt`, {
       method: 'POST',
     }),
   split: (orderId: string, data: SplitOrderDto) =>

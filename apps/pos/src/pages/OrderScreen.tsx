@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Search, Plus, Minus, X } from 'lucide-react';
+import { ArrowLeft, Search, Plus, Minus, X, Printer } from 'lucide-react';
 import { tablesApi, productsApi, categoriesApi, ordersApi } from '@/services/api';
 import type { Product, Order } from '@/services/api';
 
@@ -95,6 +95,21 @@ export default function OrderScreen() {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['tables'] });
       navigate('/tables');
+    },
+  });
+
+  const printReceiptMutation = useMutation({
+    mutationFn: ordersApi.printReceipt,
+    onSuccess: (result) => {
+      if (result.success) {
+        // Show success feedback (could add toast notification)
+        console.log('Adisyon yazdırıldı');
+      } else {
+        alert(result.message || 'Adisyon yazdırılamadı');
+      }
+    },
+    onError: () => {
+      alert('Adisyon yazdırma hatası');
     },
   });
 
@@ -520,24 +535,48 @@ export default function OrderScreen() {
 
           {/* Butonlar */}
           <div style={{ padding: '0 24px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button
-              onClick={handleSendToKitchen}
-              disabled={!currentOrder || currentOrder.items.length === 0 || currentOrder.status !== 'open'}
-              style={{ 
-                width: '100%',
-                padding: '14px',
-                borderRadius: '12px',
-                border: 'none',
-                background: 'rgba(255,255,255,0.08)',
-                color: '#fff',
-                fontSize: '15px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                opacity: (!currentOrder || currentOrder.items.length === 0 || currentOrder.status !== 'open') ? 0.3 : 1,
-              }}
-            >
-              Mutfağa Gönder
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={handleSendToKitchen}
+                disabled={!currentOrder || currentOrder.items.length === 0 || currentOrder.status !== 'open'}
+                style={{ 
+                  flex: 1,
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#fff',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: (!currentOrder || currentOrder.items.length === 0 || currentOrder.status !== 'open') ? 0.3 : 1,
+                }}
+              >
+                Mutfağa Gönder
+              </button>
+
+              <button
+                onClick={() => currentOrder && printReceiptMutation.mutate(currentOrder.id)}
+                disabled={!currentOrder || currentOrder.items.length === 0 || printReceiptMutation.isPending}
+                title="Adisyon Yazdır"
+                style={{ 
+                  padding: '14px 16px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'rgba(255,159,10,0.15)',
+                  color: '#FF9F0A',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: (!currentOrder || currentOrder.items.length === 0 || printReceiptMutation.isPending) ? 0.3 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Printer size={18} />
+              </button>
+            </div>
 
             <button
               onClick={() => {

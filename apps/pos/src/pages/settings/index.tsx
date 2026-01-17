@@ -21,7 +21,7 @@ export default function SettingsScreen() {
     business, setBusiness,
     receipt, setReceipt,
     devices, setDevices,
-    users,
+    users, usersLoading, usersError,
     saveStatus,
     addUser, updateUser, deleteUser, toggleUserActive,
   } = useSettingsStorage();
@@ -148,6 +148,8 @@ export default function SettingsScreen() {
         return (
           <UsersTab
             users={users}
+            isLoading={usersLoading}
+            error={usersError}
             onAdd={() => setShowUserModal(true)}
             onEdit={setEditingUser}
             onDelete={deleteUser}

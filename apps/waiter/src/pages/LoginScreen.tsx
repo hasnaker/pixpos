@@ -1,18 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 interface Waiter {
   id: string;
   name: string;
-  initials: string;
-  pin: string;
+  role: string;
+  avatarUrl?: string | null;
 }
 
-const MOCK_WAITERS: Waiter[] = [
-  { id: '1', name: 'Mehmet Kaya', initials: 'MK', pin: '1234' },
-  { id: '2', name: 'Elif Yılmaz', initials: 'EY', pin: '5678' },
-  { id: '3', name: 'Ali Şahin', initials: 'AS', pin: '0000' },
-];
+// Generate initials from name
+const getInitials = (name: string): string => {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
+// Fetch waiters from API
+const fetchWaiters = async (): Promise<Waiter[]> => {
+  // Fetch all users and filter by role on client side
+  // API should filter but we do it here as backup
+  const response = await fetch(`${API_URL}/users`);
+  if (!response.ok) throw new Error('Garsonlar yüklenemedi');
+  const allUsers = await response.json();
+  // Filter only waiters (role === 'waiter')
+  return allUsers.filter((u: Waiter) => u.role === 'waiter');
+};
 
 export default function LoginScreen() {
   const navigate = useNavigate();
@@ -20,6 +33,16 @@ export default function LoginScreen() {
   const [selectedWaiter, setSelectedWaiter] = useState<Waiter | null>(null);
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Fetch waiters from API - refetch every 30 seconds for real-time sync
+  const { data: waiters = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['waiters'],
+    queryFn: fetchWaiters,
+    staleTime: 1000 * 30, // 30 seconds - faster sync
+    refetchInterval: 1000 * 30, // Auto-refetch every 30 seconds
+    retry: 2,
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -29,33 +52,54 @@ export default function LoginScreen() {
   const formatTime = (date: Date) => date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   const formatDate = (date: Date) => date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
 
-  const handlePinInput = useCallback((digit: string) => {
-    if (pin.length >= 4) return;
+  const handlePinInput = useCallback(async (digit: string) => {
+    if (pin.length >= 4 || loginLoading) return;
     const newPin = pin + digit;
     setPin(newPin);
     setPinError(false);
 
     if (newPin.length === 4 && selectedWaiter) {
-      setTimeout(() => {
-        if (newPin === selectedWaiter.pin) {
-          localStorage.setItem('waiter', JSON.stringify({
-            id: selectedWaiter.id,
-            name: selectedWaiter.name,
-            initials: selectedWaiter.initials,
-          }));
-          navigate('/tables');
+      setLoginLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/users/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin: newPin }),
+        });
+        
+        if (response.ok) {
+          const user = await response.json();
+          // Verify it's the selected waiter
+          if (user.id === selectedWaiter.id) {
+            localStorage.setItem('waiter', JSON.stringify({
+              id: user.id,
+              name: user.name,
+              initials: getInitials(user.name),
+            }));
+            navigate('/tables');
+          } else {
+            setPinError(true);
+            setPin('');
+          }
         } else {
           setPinError(true);
           setPin('');
-          setTimeout(() => setPinError(false), 600);
         }
-      }, 150);
+      } catch {
+        setPinError(true);
+        setPin('');
+      } finally {
+        setLoginLoading(false);
+        setTimeout(() => setPinError(false), 600);
+      }
     }
-  }, [pin, selectedWaiter, navigate]);
+  }, [pin, selectedWaiter, navigate, loginLoading]);
 
   const handleBackspace = () => {
-    setPin(prev => prev.slice(0, -1));
-    setPinError(false);
+    if (!loginLoading) {
+      setPin(prev => prev.slice(0, -1));
+      setPinError(false);
+    }
   };
 
   const handleBack = () => {
@@ -95,7 +139,7 @@ export default function LoginScreen() {
             boxShadow: '0 0 40px rgba(94, 92, 230, 0.3)',
           }}>
             <span style={{ color: '#fff', fontSize: '32px', fontWeight: 600 }}>
-              {selectedWaiter.initials}
+              {getInitials(selectedWaiter.name)}
             </span>
           </div>
 
@@ -143,12 +187,15 @@ export default function LoginScreen() {
             gap: '16px',
             marginTop: '32px',
             marginBottom: '32px',
+            opacity: loginLoading ? 0.5 : 1,
+            pointerEvents: loginLoading ? 'none' : 'auto',
           }}>
             {['1','2','3','4','5','6','7','8','9','','0','⌫'].map((key, i) => (
               key === '' ? <div key={i} /> :
               <button
                 key={i}
                 onClick={() => key === '⌫' ? handleBackspace() : handlePinInput(key)}
+                disabled={loginLoading}
                 style={{
                   width: '80px',
                   height: '80px',
@@ -158,7 +205,7 @@ export default function LoginScreen() {
                   color: '#fff',
                   fontSize: key === '⌫' ? '24px' : '32px',
                   fontWeight: 300,
-                  cursor: 'pointer',
+                  cursor: loginLoading ? 'not-allowed' : 'pointer',
                   transition: 'all 0.15s ease',
                   display: 'flex',
                   alignItems: 'center',
@@ -172,13 +219,15 @@ export default function LoginScreen() {
 
           <button 
             onClick={handleBack}
+            disabled={loginLoading}
             style={{
               background: 'transparent',
               border: 'none',
               color: '#0A84FF',
               fontSize: '15px',
-              cursor: 'pointer',
+              cursor: loginLoading ? 'not-allowed' : 'pointer',
               padding: '12px 24px',
+              opacity: loginLoading ? 0.5 : 1,
             }}
           >
             Kullanıcı Değiştir
@@ -238,87 +287,152 @@ export default function LoginScreen() {
 
         {/* Logo */}
         <div style={{
-          width: '72px',
-          height: '72px',
-          background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
-          borderRadius: '18px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: '16px',
-          boxShadow: '0 0 40px rgba(10, 132, 255, 0.3)',
+          width: '280px',
+          height: '160px',
+          marginBottom: '24px',
         }}>
-          <span style={{ color: '#fff', fontSize: '28px', fontWeight: 700 }}>P</span>
+          <svg viewBox="0 0 1920 1080" fill="white" style={{ width: '100%', height: '100%' }}>
+            <path d="M781.82,494.56h-47.05v47.05c0,25.99,21.07,47.05,47.05,47.05h0c25.99,0,47.05-21.07,47.05-47.05h0c0-25.99-21.07-47.05-47.05-47.05Z"/>
+            <g>
+              <path d="M909.93,521.48c-2.66-2.66-5.82-4.79-9.4-6.33-3.59-1.55-7.48-2.34-11.55-2.34s-7.95.79-11.55,2.34c-3.58,1.55-6.75,3.68-9.42,6.33-2.68,2.66-4.83,5.83-6.38,9.43-1.55,3.61-2.34,7.52-2.34,11.62v43.36c0,1.52.54,2.83,1.59,3.88,1.06,1.06,2.34,1.59,3.83,1.59s2.85-.57,3.82-1.65c.94-1.05,1.42-2.34,1.42-3.83v-20.7c2.1,1.77,4.46,3.24,7.03,4.39,3.69,1.65,7.73,2.49,12,2.49s7.96-.79,11.55-2.34c3.58-1.54,6.74-3.68,9.4-6.33,2.66-2.66,4.78-5.81,6.31-9.37,1.53-3.57,2.31-7.44,2.31-11.5s-.78-8.01-2.31-11.61c-1.53-3.6-3.66-6.77-6.32-9.43ZM888.96,523.58c2.66,0,5.16.5,7.44,1.49,2.29.99,4.31,2.36,6.02,4.06,1.7,1.7,3.05,3.73,4.03,6.03.97,2.3,1.46,4.78,1.46,7.36s-.49,4.99-1.46,7.27c-.98,2.29-2.34,4.33-4.03,6.04-1.7,1.72-3.72,3.09-6.01,4.08-2.27.99-4.78,1.49-7.44,1.49s-5.12-.5-7.41-1.49c-2.3-.99-4.33-2.37-6.03-4.08-1.7-1.72-3.07-3.75-4.07-6.05-.99-2.27-1.49-4.72-1.49-7.26s.5-5.06,1.49-7.35c.99-2.31,2.36-4.34,4.06-6.04,1.7-1.7,3.73-3.06,6.04-4.06,2.3-.99,4.79-1.49,7.41-1.49Z"/>
+              <path d="M931.68,495.76c-1.71,0-3.17.59-4.34,1.76s-1.76,2.63-1.76,4.34.59,3.12,1.75,4.3c1.17,1.2,2.64,1.8,4.35,1.8s3.18-.6,4.37-1.79c1.19-1.19,1.79-2.64,1.79-4.31s-.61-3.18-1.8-4.35c-1.19-1.16-2.66-1.75-4.36-1.75Z"/>
+              <path d="M931.65,512.8c-1.47,0-2.75.52-3.8,1.55-1.06,1.04-1.59,2.34-1.59,3.86v48.09c0,1.49.54,2.77,1.59,3.81,1.05,1.03,2.33,1.55,3.79,1.55s2.69-.53,3.72-1.57c1.03-1.04,1.55-2.31,1.55-3.79v-48.09c0-1.5-.49-2.79-1.47-3.82-.98-1.04-2.3-1.59-3.81-1.59Z"/>
+              <path d="M980.49,541.77l19.45-19.84c1.06-1.16,1.6-2.45,1.6-3.83s-.54-2.65-1.59-3.71c-1.06-1.06-2.3-1.59-3.71-1.59-1.52,0-2.85.55-3.95,1.66l-19.26,19.69-19.33-19.76c-1.09-1.09-2.4-1.65-3.88-1.65-.71,0-1.41.15-2.06.45-.62.29-1.19.68-1.67,1.17-.5.5-.89,1.08-1.18,1.72-.29.67-.44,1.37-.44,2.07,0,1.41.54,2.66,1.58,3.7l19.53,19.91-20.15,20.64c-.47.52-.86,1.08-1.15,1.66-.33.67-.5,1.4-.5,2.17,0,.72.16,1.42.46,2.05.29.61.69,1.15,1.19,1.62.5.47,1.07.84,1.69,1.1.64.27,1.32.4,2.02.4,1.57,0,2.91-.56,3.95-1.66l19.95-20.39,20.04,20.42c.97,1.02,2.26,1.56,3.74,1.56,1.34,0,2.56-.49,3.63-1.45,1.1-.99,1.67-2.3,1.67-3.79s-.54-2.83-1.58-3.87l-20.05-20.49Z"/>
+              <path d="M1058.91,521.48c-2.66-2.66-5.82-4.79-9.4-6.33-3.59-1.55-7.48-2.34-11.55-2.34s-7.95.79-11.55,2.34c-3.58,1.55-6.75,3.68-9.42,6.33-2.68,2.66-4.83,5.83-6.37,9.43-1.55,3.61-2.34,7.52-2.34,11.62v43.36c0,1.52.54,2.83,1.59,3.88,1.06,1.06,2.34,1.59,3.82,1.59s2.85-.57,3.82-1.65c.94-1.05,1.42-2.33,1.42-3.83v-20.7c2.1,1.77,4.46,3.24,7.03,4.39,3.69,1.65,7.73,2.49,12,2.49s7.96-.79,11.55-2.34c3.58-1.54,6.74-3.68,9.4-6.33,2.66-2.66,4.78-5.81,6.32-9.37,1.53-3.57,2.31-7.44,2.31-11.5s-.78-8.01-2.31-11.61c-1.53-3.6-3.66-6.77-6.32-9.43ZM1037.93,523.58c2.66,0,5.16.5,7.44,1.49,2.29.99,4.32,2.36,6.02,4.06,1.7,1.7,3.05,3.73,4.03,6.03.97,2.3,1.47,4.78,1.47,7.36s-.49,4.99-1.46,7.27c-.98,2.29-2.33,4.32-4.03,6.04-1.7,1.72-3.72,3.09-6.01,4.08-2.27.99-4.78,1.49-7.44,1.49s-5.12-.5-7.41-1.49c-2.31-.99-4.34-2.37-6.03-4.08-1.7-1.72-3.07-3.75-4.07-6.05-.99-2.27-1.49-4.72-1.49-7.26s.5-5.06,1.49-7.35c.99-2.31,2.36-4.34,4.06-6.04,1.7-1.7,3.73-3.06,6.04-4.06,2.3-.99,4.79-1.49,7.41-1.49Z"/>
+              <path d="M1122.49,521.51c-2.66-2.68-5.82-4.82-9.4-6.37-3.59-1.55-7.49-2.34-11.59-2.34s-7.94.79-11.51,2.34c-3.55,1.55-6.71,3.68-9.38,6.33-2.68,2.66-4.82,5.83-6.37,9.43-1.55,3.61-2.34,7.52-2.34,11.62s.79,7.94,2.34,11.51c1.55,3.56,3.69,6.71,6.37,9.36,2.67,2.66,5.83,4.78,9.38,6.33,3.57,1.55,7.44,2.34,11.51,2.34s8.01-.79,11.59-2.34c3.57-1.55,6.73-3.68,9.39-6.33,2.66-2.66,4.78-5.81,6.31-9.37,1.53-3.57,2.31-7.44,2.31-11.5s-.78-8-2.31-11.59c-1.53-3.58-3.65-6.75-6.3-9.42ZM1101.5,561.4c-2.62,0-5.1-.5-7.38-1.49-2.29-.99-4.31-2.37-6.01-4.08-1.7-1.72-3.07-3.76-4.07-6.05-.99-2.27-1.49-4.72-1.49-7.26s.5-5.06,1.49-7.35c.99-2.31,2.36-4.34,4.06-6.04,1.7-1.7,3.72-3.07,6.01-4.06,2.28-.99,4.76-1.49,7.38-1.49s5.17.5,7.47,1.49c2.31.99,4.33,2.36,6.01,4.05,1.68,1.7,3.03,3.73,4,6.04.97,2.3,1.46,4.77,1.46,7.36s-.49,5-1.46,7.27c-.98,2.29-2.33,4.33-4.01,6.05-1.68,1.71-3.7,3.09-6,4.08-2.29.99-4.81,1.49-7.47,1.49Z"/>
+              <path d="M1182.41,546.96c-.88-2.1-2.11-3.98-3.68-5.59-1.57-1.61-3.43-2.89-5.54-3.81-2.12-.92-4.45-1.39-6.9-1.39h-12.04c-.87,0-1.66-.16-2.41-.5-.77-.35-1.45-.82-2.03-1.4-.58-.58-1.02-1.24-1.35-2.02-.33-.76-.48-1.56-.48-2.44,0-.81.16-1.57.48-2.33.33-.77.78-1.45,1.34-2.03.56-.58,1.24-1.06,2.01-1.42.75-.35,1.54-.52,2.44-.52h21.08c1.46,0,2.73-.49,3.76-1.46,1.06-1,1.6-2.33,1.6-3.98,0-2.03-.89-3.23-1.64-3.88-1.03-.89-2.28-1.34-3.72-1.34h-21.02c-2.34,0-4.58.45-6.64,1.33-2.04.87-3.86,2.08-5.39,3.59-1.53,1.5-2.75,3.29-3.63,5.3-.89,2.02-1.33,4.22-1.33,6.52s.44,4.57,1.29,6.64c.85,2.06,2.05,3.9,3.56,5.47,1.51,1.57,3.33,2.83,5.4,3.75,2.08.92,4.35,1.39,6.74,1.39h11.29c1,.03,1.98.21,2.91.53.89.3,1.69.75,2.37,1.31.67.56,1.2,1.24,1.61,2.05.39.79.59,1.72.59,2.79s-.21,2.1-.62,2.94c-.43.88-1.01,1.65-1.71,2.29-.7.64-1.5,1.13-2.38,1.47-.88.34-1.78.51-2.66.51h-24.36c-1.43,0-2.69.52-3.64,1.49-.95.98-1.43,2.24-1.43,3.75s.47,2.83,1.4,3.84c.95,1.03,2.22,1.58,3.67,1.58h25.05c2.46,0,4.79-.48,6.92-1.42,2.11-.94,3.96-2.23,5.49-3.84,1.52-1.6,2.74-3.49,3.61-5.61.88-2.13,1.32-4.41,1.32-6.78s-.45-4.65-1.32-6.76Z"/>
+            </g>
+          </svg>
         </div>
         
-        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 600, margin: '0 0 4px' }}>
-          PIXPOS
-        </h1>
         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '15px', margin: '0 0 48px' }}>
           Garson Paneli
         </p>
 
-        {/* User Selection */}
-        <p style={{ 
-          color: 'rgba(255,255,255,0.35)', 
-          fontSize: '11px', 
-          textTransform: 'uppercase',
-          letterSpacing: '1.5px',
-          margin: '0 0 20px',
-          fontWeight: 500,
-        }}>
-          Giriş yapmak için seçin
-        </p>
-        
-        <div style={{
-          display: 'flex',
-          gap: '16px',
-          justifyContent: 'center',
-          flexWrap: 'wrap',
-        }}>
-          {MOCK_WAITERS.map((waiter) => (
+        {/* Loading State */}
+        {isLoading && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: '32px',
+              height: '32px',
+              border: '2px solid rgba(255,255,255,0.1)',
+              borderTopColor: 'rgba(255,255,255,0.6)',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+              margin: '0 auto 16px',
+            }} />
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+              Garsonlar yükleniyor...
+            </p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: '#FF453A', fontSize: '14px', marginBottom: '16px' }}>
+              Garsonlar yüklenemedi
+            </p>
             <button
-              key={waiter.id}
-              onClick={() => setSelectedWaiter(waiter)}
+              onClick={() => window.location.reload()}
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '20px 24px',
-                background: 'rgba(255,255,255,0.06)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px',
+                color: '#fff',
+                padding: '12px 24px',
+                fontSize: '14px',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                minWidth: '100px',
               }}
             >
-              <div style={{
-                width: '56px',
-                height: '56px',
-                background: 'linear-gradient(135deg, #5E5CE6, #BF5AF2)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <span style={{ color: '#fff', fontSize: '18px', fontWeight: 600 }}>
-                  {waiter.initials}
-                </span>
-              </div>
-              <div>
-                <p style={{ color: '#fff', fontSize: '14px', fontWeight: 500, margin: 0 }}>
-                  {waiter.name.split(' ')[0]}
-                </p>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '4px 0 0' }}>
-                  Garson
-                </p>
-              </div>
+              Tekrar Dene
             </button>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && waiters.length === 0 && (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+              Henüz garson eklenmemiş.
+            </p>
+            <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '13px', marginTop: '8px' }}>
+              POS veya Boss panelinden garson ekleyin.
+            </p>
+          </div>
+        )}
+
+        {/* User Selection */}
+        {!isLoading && !error && waiters.length > 0 && (
+          <>
+            <p style={{ 
+              color: 'rgba(255,255,255,0.35)', 
+              fontSize: '11px', 
+              textTransform: 'uppercase',
+              letterSpacing: '1.5px',
+              margin: '0 0 20px',
+              fontWeight: 500,
+            }}>
+              Giriş yapmak için seçin
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              gap: '16px',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}>
+              {waiters.map((waiter) => (
+                <button
+                  key={waiter.id}
+                  onClick={() => setSelectedWaiter(waiter)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '20px 24px',
+                    background: 'rgba(255,255,255,0.06)',
+                    borderRadius: '20px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    minWidth: '100px',
+                  }}
+                >
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    background: 'linear-gradient(135deg, #5E5CE6, #BF5AF2)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <span style={{ color: '#fff', fontSize: '18px', fontWeight: 600 }}>
+                      {getInitials(waiter.name)}
+                    </span>
+                  </div>
+                  <div>
+                    <p style={{ color: '#fff', fontSize: '14px', fontWeight: 500, margin: 0 }}>
+                      {waiter.name.split(' ')[0]}
+                    </p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '4px 0 0' }}>
+                      Garson
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -9,17 +9,17 @@
     "url": "https://github.com/hasnaker/pixpos.git"
   },
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "NODE_ENV=development electron .",
-    "electron:build": "npm run build && electron-builder",
-    "electron:build:win": "npm run build && electron-builder --win",
-    "electron:build:mac": "npm run build && electron-builder --mac",
-    "electron:build:linux": "npm run build && electron-builder --linux"
+    "electron:build": "ELECTRON_BUILD=true npm run build && electron-builder",
+    "electron:build:win": "ELECTRON_BUILD=true npm run build && electron-builder --win",
+    "electron:build:mac": "ELECTRON_BUILD=true npm run build && electron-builder --mac",
+    "electron:build:linux": "ELECTRON_BUILD=true npm run build && electron-builder --linux"
   },
   "build": {
     "appId": "cloud.pixpos.pos",
@@ -27,13 +27,14 @@
     "copyright": "Copyright © 2026 PIXPOS",
     "directories": {
       "output": "electron-dist",
-      "buildResources": "electron/resources"
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
       "electron/**/*",
       "public/**/*"
     ],
+    "icon": "build/icon.png",
     "win": {
       "target": [
         {
@@ -45,6 +46,7 @@
           "arch": ["x64"]
         }
       ],
+      "icon": "build/icon.ico",
       "artifactName": "PIXPOS-Kasa-${version}-Setup.${ext}"
     },
     "nsis": {
@@ -57,11 +59,13 @@
     "mac": {
       "target": ["dmg"],
       "category": "public.app-category.business",
+      "icon": "build/icon.icns",
       "artifactName": "PIXPOS-Kasa-${version}.${ext}"
     },
     "linux": {
       "target": ["AppImage"],
       "category": "Office",
+      "icon": "build/icon.png",
       "artifactName": "PIXPOS-Kasa-${version}.${ext}"
     }
   },
