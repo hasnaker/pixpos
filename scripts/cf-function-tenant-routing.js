@@ -9,9 +9,12 @@ function handler(event) {
     
     // Check if request is from native app (Electron/Capacitor WebView)
     // Electron uses "Electron" in UA, Capacitor Android uses "wv" (WebView)
+    // Our apps append "PIXPOS" to User-Agent
     var isNativeApp = userAgent.indexOf('Electron') !== -1 || 
                       userAgent.indexOf('wv') !== -1 ||
-                      userAgent.indexOf('PIXPOS') !== -1;
+                      userAgent.indexOf('PIXPOS') !== -1 ||
+                      userAgent.indexOf('PIXPOS-Waiter') !== -1 ||
+                      userAgent.indexOf('PIXPOS-POS') !== -1;
     
     // Check if this is a static asset request (JS, CSS, images, etc.)
     var isAsset = uri.indexOf('/assets/') !== -1 || 
