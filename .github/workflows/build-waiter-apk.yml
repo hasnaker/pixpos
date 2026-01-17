@@ -40,9 +40,17 @@ jobs:
         run: pnpm build
         working-directory: apps/waiter
         
-      - name: Sync Capacitor
-        run: npx cap sync android
+      - name: Install Capacitor CLI
+        run: pnpm add -D @capacitor/cli @capacitor/core @capacitor/android
         working-directory: apps/waiter
+        
+      - name: Sync Capacitor
+        run: pnpm exec cap sync android
+        working-directory: apps/waiter
+        
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+        working-directory: apps/waiter/android
         
       - name: Build APK
         run: ./gradlew assembleDebug
