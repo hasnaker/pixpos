@@ -5,9 +5,11 @@ const config: CapacitorConfig = {
   appName: 'PIXPOS Garson',
   webDir: 'dist',
   server: {
-    // Production API URL - APK bu URL'e bağlanacak
+    // Production URL - APK bu URL'i yükleyecek
     url: 'https://queen.pixpos.cloud/waiter',
     cleartext: true,
+    // User-Agent ekleme - CloudFront bypass için
+    androidScheme: 'https',
   },
   plugins: {
     SplashScreen: {
@@ -26,8 +28,9 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true, // Debug için açık
-    appendUserAgent: 'PIXPOS-Waiter', // CloudFront bypass için
+    webContentsDebuggingEnabled: true,
+    // User-Agent'ı burada da bırakalım
+    appendUserAgent: 'PIXPOS-Waiter',
   },
 };
 

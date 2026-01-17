@@ -10,13 +10,28 @@
 
 | Servis | URL | Durum |
 |--------|-----|-------|
-| POS | https://queen.pixpos.cloud/pos | ✅ Çalışıyor |
+| POS | https://queen.pixpos.cloud/pos | ✅ Çalışıyor (Web bloklu, EXE hazır) |
 | Boss Panel | https://queen.pixpos.cloud/boss | ✅ Çalışıyor |
-| Garson Tablet | https://queen.pixpos.cloud/waiter | ✅ Çalışıyor |
+| Garson Tablet | https://queen.pixpos.cloud/waiter | ✅ Çalışıyor (Web bloklu, APK hazır) |
 | Mutfak Ekranı | https://queen.pixpos.cloud/kitchen | ✅ Çalışıyor |
 | Müşteri Ekranı | https://queen.pixpos.cloud/pos/display | ✅ Çalışıyor |
 | QR Menü | https://queen.pixpos.site | ✅ Çalışıyor |
 | API | https://api.pixpos.cloud | ✅ Çalışıyor |
+
+### Mevcut Veri Durumu (API'de)
+| Veri | Miktar | Durum |
+|------|--------|-------|
+| Kategoriler | 19 | ✅ Hazır |
+| Ürünler | 140 | ✅ Hazır |
+| Masalar | 41 | ✅ Hazır |
+| Bölgeler | 3 | ✅ Hazır |
+| Yazıcılar | 3 | ⚠️ Aynı IP (düzeltilmeli) |
+
+### Build Durumu
+| Artifact | Boyut | İndirme |
+|----------|-------|---------|
+| Windows EXE | ~122 MB | [GitHub Actions](https://github.com/hasnaker/pixpos/actions) |
+| Android APK | ~3.5 MB | [GitHub Actions](https://github.com/hasnaker/pixpos/actions) |
 
 ---
 
@@ -26,7 +41,7 @@
 
 | Bilgi | Durum | Not |
 |-------|-------|-----|
-| İşletme adı | ⬜ | Queen Waffle & Coffee |
+| İşletme adı | ✅ | Queen Waffle & Coffee |
 | Logo (PNG, şeffaf arka plan) | ⬜ | Fiş ve QR menü için |
 | Adres | ⬜ | Fiş için |
 | Telefon | ⬜ | Fiş için |
@@ -38,8 +53,8 @@
 
 | Bilgi | Durum | Not |
 |-------|-------|-----|
-| Kategori listesi | ⬜ | Waffle, Kahve, İçecek, vb. |
-| Ürün listesi (isim + fiyat) | ⬜ | Excel veya liste |
+| Kategori listesi | ✅ | 19 kategori girildi |
+| Ürün listesi (isim + fiyat) | ✅ | 140 ürün girildi |
 | Ürün görselleri | ⬜ | Opsiyonel ama önerilir |
 | Ürün açıklamaları | ⬜ | QR menü için |
 
@@ -47,9 +62,9 @@
 
 | Bilgi | Durum | Not |
 |-------|-------|-----|
-| Bölge sayısı | ⬜ | Salon, Teras, Bahçe? |
-| Her bölgedeki masa sayısı | ⬜ | Örn: Salon 10, Teras 5 |
-| Masa numaralandırma | ⬜ | 1'den mi başlıyor? |
+| Bölge sayısı | ✅ | 3 bölge (Salon, Teras, Bahçe?) |
+| Her bölgedeki masa sayısı | ✅ | Toplam 41 masa |
+| Masa numaralandırma | ✅ | Girildi |
 
 ### Donanım
 
@@ -59,46 +74,34 @@
 | Garson tableti | ⬜ | Android tablet? |
 | Mutfak ekranı | ⬜ | TV/Monitor? |
 | Müşteri ekranı | ⬜ | İkinci monitör? |
-| Yazıcı | ⬜ | Marka/model? USB/Network? |
+| Yazıcı | ⚠️ | 3 yazıcı tanımlı ama hepsi aynı IP |
 | İnternet | ⬜ | WiFi stabil mi? |
+
+### Yazıcı IP Düzeltmesi Gerekli
+Mevcut durumda 3 yazıcı tanımlı ama hepsi `192.168.1.188` IP'sine sahip.
+Müşteriden gerçek yazıcı IP'lerini almak gerekiyor:
+- Kasa yazıcısı IP: ?
+- Mutfak yazıcısı IP: ?
+- Bar yazıcısı IP: ?
 
 ---
 
 ## 📋 Kurulum Adımları
 
-### Aşama 1: Veri Girişi (Boss Panel) - 30 dk
+### Aşama 1: Veri Girişi (Boss Panel) - ✅ TAMAMLANDI
 
 **URL:** https://queen.pixpos.cloud/boss
 
-1. **Kategoriler Oluştur**
-   - Waffle
-   - Kahve
-   - Soğuk İçecekler
-   - Sıcak İçecekler
-   - Tatlılar
-   - (Müşterinin menüsüne göre)
+Veri girişi tamamlandı:
+- ✅ 19 Kategori oluşturuldu
+- ✅ 140 Ürün eklendi
+- ✅ 3 Bölge oluşturuldu
+- ✅ 41 Masa eklendi
 
-2. **Ürünleri Ekle**
-   - Her kategori için ürünler
-   - Fiyatlar
-   - Görseller (varsa)
-   - Açıklamalar (QR menü için)
-
-3. **Bölgeler Oluştur**
-   - Salon
-   - Teras
-   - Bahçe
-   - (Müşterinin düzenine göre)
-
-4. **Masaları Ekle**
-   - Her bölge için masa sayısı
-   - Masa numaraları
-
-5. **Ayarları Yapılandır**
-   - İşletme bilgileri
-   - Logo yükle
-   - Fiş ayarları
-   - Vergi oranı (%10 KDV)
+**Kalan işler:**
+- ⬜ İşletme bilgileri (logo, adres, telefon, vergi no)
+- ⬜ Fiş ayarları
+- ⬜ Yazıcı IP'leri düzeltilmeli
 
 ---
 
@@ -106,12 +109,16 @@
 
 **Müşterinin kasasında yapılacaklar:**
 
-1. **Chrome'da Aç**
+1. **Windows EXE İndir** ✅
+   - GitHub Actions'tan indir: https://github.com/hasnaker/pixpos/actions
+   - "Build POS EXE" workflow → Artifacts → PIXPOS-Windows
+   - EXE boyutu: ~122 MB
+   - Kurulum: PIXPOS-Kasa-1.0.0-Setup.exe çalıştır
+
+2. **Alternatif: Chrome'da Aç**
    ```
    https://queen.pixpos.cloud/pos
    ```
-
-2. **Kısayol Oluştur**
    - Chrome menü > "Kısayol oluştur"
    - "Pencere olarak aç" seç
    - Masaüstüne ekle
@@ -137,16 +144,17 @@
 
 **Android Tablet:**
 
-1. **APK İndir**
-   - APK linkini WhatsApp ile gönder
-   - Veya QR kod ile indir
+1. **APK İndir** ✅
+   - GitHub Actions'tan indir: https://github.com/hasnaker/pixpos/actions
+   - "Build Waiter APK" workflow → Artifacts → PIXPOS-Waiter-APK
+   - APK boyutu: ~3.5 MB
 
 2. **Kurulum**
    - "Bilinmeyen kaynaklardan yükle" izni ver
    - APK'yı kur
 
 3. **Giriş**
-   - Uygulama açılınca otomatik bağlanır
+   - Uygulama açılınca otomatik bağlanır (queen.pixpos.cloud/waiter)
    - Test siparişi ver
 
 **Alternatif (Web):**
@@ -266,33 +274,42 @@ https://queen.pixpos.cloud/waiter
 
 ## ⏱️ Tahmini Süre
 
-| Aşama | Süre |
-|-------|------|
-| Veri girişi (Boss) | 30 dk |
-| Kasa kurulumu | 15 dk |
-| Tablet kurulumu | 10 dk |
-| Mutfak ekranı | 5 dk |
-| QR menü | 10 dk |
-| Test | 15 dk |
-| **TOPLAM** | **~1.5 saat** |
+| Aşama | Süre | Durum |
+|-------|------|-------|
+| Veri girişi (Boss) | 30 dk | ✅ Tamamlandı |
+| Kasa kurulumu (EXE) | 15 dk | ⬜ Bekliyor |
+| Tablet kurulumu (APK) | 10 dk | ⬜ Bekliyor |
+| Mutfak ekranı | 5 dk | ⬜ Bekliyor |
+| QR menü | 10 dk | ⬜ Bekliyor |
+| Test | 15 dk | ⬜ Bekliyor |
+| **KALAN TOPLAM** | **~55 dk** | |
 
 ---
 
 ## 📞 Kurulum Günü Akışı
 
-### Hazırlık (Kurulumdan Önce)
-1. ⬜ Müşteriden menü bilgilerini al
-2. ⬜ Boss Panel'de kategorileri oluştur
-3. ⬜ Ürünleri ekle
-4. ⬜ Bölge ve masaları ayarla
+### Hazırlık (Kurulumdan Önce) - ✅ TAMAMLANDI
+1. ✅ Müşteriden menü bilgilerini al
+2. ✅ Boss Panel'de kategorileri oluştur (19 kategori)
+3. ✅ Ürünleri ekle (140 ürün)
+4. ✅ Bölge ve masaları ayarla (3 bölge, 41 masa)
+5. ✅ EXE ve APK build'leri hazır
+
+### Müşteriden Alınacaklar (Kurulum Öncesi)
+1. ⬜ Logo (PNG, şeffaf arka plan)
+2. ⬜ Adres, telefon, vergi no
+3. ⬜ Yazıcı IP adresleri (kasa, mutfak, bar)
+4. ⬜ Donanım bilgisi (PC, tablet, TV)
 
 ### Uzaktan Bağlantı (Müşteri ile)
 1. ⬜ AnyDesk/TeamViewer ile bağlan
-2. ⬜ POS kısayolu oluştur
-3. ⬜ Yazıcı ayarla
+2. ⬜ EXE'yi indir ve kur (veya Chrome kısayolu)
+3. ⬜ Yazıcı IP'lerini düzelt
 4. ⬜ Müşteri ekranı ayarla
-5. ⬜ Test siparişi yap
-6. ⬜ Müşteriyi eğit (10-15 dk)
+5. ⬜ APK'yı tablet'e kur
+6. ⬜ Mutfak ekranını aç
+7. ⬜ Test siparişi yap
+8. ⬜ Müşteriyi eğit (10-15 dk)
 
 ### Sonrası
 1. ⬜ WhatsApp destek grubu oluştur

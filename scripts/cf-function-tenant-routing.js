@@ -8,13 +8,18 @@ function handler(event) {
     var tenant = host.split('.')[0];
     
     // Check if request is from native app (Electron/Capacitor WebView)
-    // Electron uses "Electron" in UA, Capacitor Android uses "wv" (WebView)
-    // Our apps append "PIXPOS" to User-Agent
+    // Electron uses "Electron" in UA
+    // Android WebView uses "wv" or "Android" with specific patterns
+    // Our apps append "PIXPOS-Waiter" or "PIXPOS-POS" to User-Agent
     var isNativeApp = userAgent.indexOf('Electron') !== -1 || 
                       userAgent.indexOf('wv') !== -1 ||
                       userAgent.indexOf('PIXPOS') !== -1 ||
                       userAgent.indexOf('PIXPOS-Waiter') !== -1 ||
-                      userAgent.indexOf('PIXPOS-POS') !== -1;
+                      userAgent.indexOf('PIXPOS-POS') !== -1 ||
+                      // Android WebView patterns (Capacitor)
+                      (userAgent.indexOf('Android') !== -1 && userAgent.indexOf('Version/') !== -1) ||
+                      // Capacitor specific
+                      userAgent.indexOf('Capacitor') !== -1;
     
     // Check if this is a static asset request (JS, CSS, images, etc.)
     var isAsset = uri.indexOf('/assets/') !== -1 || 
@@ -59,9 +64,11 @@ function handler(event) {
         app = 'boss';
     } else if (uri.startsWith('/kitchen')) {
         app = 'kitchen';
-    } else if (uri.startsWith('/display')) {
-        // Customer display - allow for second monitor
+    } else if (uri.startsWith('/pos') || uri.startsWith('/display')) {
+        // POS app - includes customer display
         app = 'pos';
+    } else if (uri.startsWith('/waiter')) {
+        app = 'waiter';
     }
     
     // Check if this is a static asset (has file extension)
