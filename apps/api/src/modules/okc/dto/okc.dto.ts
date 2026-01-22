@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, Min, IsIP, IsPort } from 'class-validator';
+import { IsString, IsNumber, IsOptional, Min, IsIP, IsPort, IsIn } from 'class-validator';
 
 export class OkcConfigDto {
   @IsIP()
@@ -28,6 +28,10 @@ export class SaleRequestDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsIn(['cash', 'card'])
+  paymentType?: 'cash' | 'card';
 }
 
 export class RefundRequestDto {

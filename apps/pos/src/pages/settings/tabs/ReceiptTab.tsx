@@ -84,7 +84,7 @@ export default function ReceiptTab({ receipt, setReceipt, business }: ReceiptTab
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '16px' }}>
           {receipt.showLogo && (
-            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>{business.name}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>{business.storeName}</div>
           )}
           {receipt.showAddress && (
             <div style={{ fontSize: '11px', color: '#666', marginBottom: '4px' }}>{business.address}</div>

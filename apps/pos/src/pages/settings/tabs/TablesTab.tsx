@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Plus, X, GripVertical, Move, Trash2, CheckSquare, Square, XSquare } from 'lucide-react';
 import { cardStyle } from '../styles';
-import { ZONES } from '../types';
+import { zonesApi } from '@/services/api';
 
 interface TablesTabProps {
   tables: any[];
@@ -18,6 +19,15 @@ export default function TablesTab({ tables, onAdd, onDelete, onBulkDelete, onUpd
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+
+  // Fetch zones from API
+  const { data: apiZones = [] } = useQuery({
+    queryKey: ['zones'],
+    queryFn: zonesApi.getAll,
+  });
+
+  // Get zone names from API
+  const ZONES = apiZones.map(z => z.name);
 
   const tablesByZone = ZONES.reduce((acc, zone) => {
     acc[zone] = tables.filter((t: any) => t.zone === zone).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));

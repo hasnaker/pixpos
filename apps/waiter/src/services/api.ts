@@ -76,6 +76,14 @@ export const zonesApi = {
     zonesCache.get,
     zonesCache.set
   ),
+  // Force refresh from server
+  refresh: async () => {
+    zonesCache.clear();
+    return request<Zone[]>('/zones').then(data => {
+      zonesCache.set(data);
+      return data;
+    });
+  },
 };
 
 // Categories API (with cache)
@@ -111,7 +119,7 @@ export const ordersApi = {
   getAll: (status?: OrderStatus) =>
     request<Order[]>(`/orders${status ? `?status=${status}` : ''}`),
   getOne: (id: string) => request<Order>(`/orders/${id}`),
-  getByTable: (tableId: string) => request<Order[]>(`/orders?tableId=${tableId}`),
+  getByTable: (tableId: string) => request<Order[]>(`/orders/table/${tableId}`),
   
   // Create order with offline support
   create: async (data: CreateOrderDto): Promise<Order | PendingOrder> => {
@@ -198,6 +206,7 @@ export const ordersApi = {
 export interface Zone {
   id: string;
   name: string;
+  prefix?: string;
   icon?: string;
   floor: number;
   sortOrder: number;

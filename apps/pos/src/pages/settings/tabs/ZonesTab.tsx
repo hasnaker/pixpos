@@ -19,11 +19,16 @@ const getIconComponent = (iconName: string | undefined) => {
   return found ? found.icon : LayoutGrid;
 };
 
+// Auto-generate prefix from name
+const generatePrefix = (name: string): string => {
+  return name.substring(0, 2).toUpperCase();
+};
+
 export default function ZonesTab() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingZone, setEditingZone] = useState<Zone | null>(null);
-  const [form, setForm] = useState({ name: '', icon: 'LayoutGrid', floor: 1 });
+  const [form, setForm] = useState({ name: '', prefix: '', icon: 'LayoutGrid', floor: 1 });
 
   const { data: zones = [], isLoading } = useQuery({
     queryKey: ['zones'],
@@ -59,22 +64,37 @@ export default function ZonesTab() {
   const closeModal = () => {
     setShowModal(false);
     setEditingZone(null);
-    setForm({ name: '', icon: 'LayoutGrid', floor: 1 });
+    setForm({ name: '', prefix: '', icon: 'LayoutGrid', floor: 1 });
   };
 
   const openEdit = (zone: Zone) => {
     setEditingZone(zone);
-    setForm({ name: zone.name, icon: zone.icon || 'LayoutGrid', floor: zone.floor });
+    setForm({ name: zone.name, prefix: zone.prefix || generatePrefix(zone.name), icon: zone.icon || 'LayoutGrid', floor: zone.floor });
     setShowModal(true);
   };
 
   const handleSubmit = () => {
     if (!form.name.trim()) return;
+    const data = {
+      ...form,
+      prefix: form.prefix.trim() || generatePrefix(form.name),
+    };
     if (editingZone) {
-      updateMutation.mutate({ id: editingZone.id, data: form });
+      updateMutation.mutate({ id: editingZone.id, data });
     } else {
-      createMutation.mutate(form);
+      createMutation.mutate(data);
     }
+  };
+
+  // Auto-update prefix when name changes (only if prefix is empty or matches old auto-generated)
+  const handleNameChange = (newName: string) => {
+    const oldAutoPrefix = generatePrefix(form.name);
+    const shouldAutoUpdate = !form.prefix || form.prefix === oldAutoPrefix;
+    setForm({
+      ...form,
+      name: newName,
+      prefix: shouldAutoUpdate ? generatePrefix(newName) : form.prefix,
+    });
   };
 
   // Katları grupla
@@ -186,7 +206,9 @@ export default function ZonesTab() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: '14px', fontWeight: 600, color: '#fff' }}>{zone.name}</p>
-                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>{floor}. Kat</p>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)' }}>
+                          {zone.prefix || generatePrefix(zone.name)} • {floor}. Kat
+                        </p>
                       </div>
                       <div style={{ display: 'flex', gap: '4px' }}>
                         <button
@@ -249,7 +271,7 @@ export default function ZonesTab() {
                 <input
                   type="text"
                   value={form.name}
-                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  onChange={e => handleNameChange(e.target.value)}
                   placeholder="Örn: Salon, Bahçe, Teras"
                   style={{
                     width: '100%', padding: '14px 16px', borderRadius: '12px',
@@ -257,6 +279,28 @@ export default function ZonesTab() {
                     color: '#fff', fontSize: '15px', outline: 'none',
                   }}
                 />
+              </div>
+
+              {/* Prefix */}
+              <div>
+                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'block' }}>
+                  Kısa Kod (Masa Adlarında Kullanılır)
+                </label>
+                <input
+                  type="text"
+                  value={form.prefix}
+                  onChange={e => setForm({ ...form, prefix: e.target.value.toUpperCase().slice(0, 5) })}
+                  placeholder="Örn: SL, BH, TR"
+                  maxLength={5}
+                  style={{
+                    width: '100%', padding: '14px 16px', borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff', fontSize: '15px', outline: 'none', textTransform: 'uppercase',
+                  }}
+                />
+                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '6px' }}>
+                  Masalar "{form.prefix || 'XX'}-01, {form.prefix || 'XX'}-02..." şeklinde adlandırılır
+                </p>
               </div>
 
               {/* Floor */}

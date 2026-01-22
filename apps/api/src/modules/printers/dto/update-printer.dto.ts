@@ -17,8 +17,8 @@ export class UpdatePrinterDto {
 
   @IsOptional()
   @IsString()
-  @IsIn(['kitchen', 'receipt'])
-  type?: 'kitchen' | 'receipt';
+  @IsIn(['kitchen', 'bar', 'receipt'])
+  type?: 'kitchen' | 'bar' | 'receipt';
 
   @IsOptional()
   @IsString()

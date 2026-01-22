@@ -5,8 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Order } from './order.entity';
+import { Store } from './store.entity';
 
 export type TableStatus = 'empty' | 'occupied' | 'paying';
 
@@ -14,6 +17,13 @@ export type TableStatus = 'empty' | 'occupied' | 'paying';
 export class Table {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', nullable: true })
+  storeId: string | null;
+
+  @ManyToOne(() => Store, store => store.tables, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ length: 50 })
   name: string;

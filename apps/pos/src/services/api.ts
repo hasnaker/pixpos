@@ -10,20 +10,53 @@ const API_BASE = isElectron
   ? 'https://api.pixpos.cloud/api'
   : (import.meta.env.VITE_API_URL || '/api');
 
-// Demo data only used as fallback when API is unreachable
-const DEMO_USERS: User[] = [
-  { id: '1', name: 'Demo Admin', role: 'admin', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
-  { id: '2', name: 'Demo Kasiyer', role: 'cashier', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
-  { id: '3', name: 'Demo Garson', role: 'waiter', isActive: true, lastLoginAt: null, avatarUrl: null, createdAt: new Date().toISOString() },
-];
+// Auth & Tenant State
+let authToken: string | null = localStorage.getItem('posToken');
+let currentStoreId: string | null = localStorage.getItem('storeId');
 
-const DEMO_TABLES: Table[] = [
-  { id: '1', name: 'Masa 1', zone: 'Salon', capacity: 4, status: 'empty', sortOrder: 1, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', name: 'Masa 2', zone: 'Salon', capacity: 4, status: 'empty', sortOrder: 2, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', name: 'Masa 3', zone: 'Salon', capacity: 6, status: 'empty', sortOrder: 3, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '4', name: 'Masa 4', zone: 'Teras', capacity: 4, status: 'empty', sortOrder: 4, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '5', name: 'Masa 5', zone: 'Teras', capacity: 2, status: 'empty', sortOrder: 5, isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem('posToken', token);
+  } else {
+    localStorage.removeItem('posToken');
+  }
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+export function setStoreId(storeId: string | null) {
+  currentStoreId = storeId;
+  if (storeId) {
+    localStorage.setItem('storeId', storeId);
+  } else {
+    localStorage.removeItem('storeId');
+  }
+}
+
+export function getStoreId(): string | null {
+  return currentStoreId;
+}
+
+export function isAuthenticated(): boolean {
+  return !!authToken && !!currentStoreId;
+}
+
+export function logout() {
+  setAuthToken(null);
+  setStoreId(null);
+  localStorage.removeItem('currentUser');
+}
+
+// API Connection Error - thrown when API is unreachable
+export class ApiConnectionError extends Error {
+  constructor(message = 'API sunucusuna bağlanılamıyor. Lütfen internet bağlantınızı kontrol edin.') {
+    super(message);
+    this.name = 'ApiConnectionError';
+  }
+}
 
 async function request<T>(
   endpoint: string,
@@ -31,34 +64,67 @@ async function request<T>(
 ): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
   
-  const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
   };
 
-  const response = await fetch(url, config);
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `HTTP error! status: ${response.status}`);
+  // Add auth token if available
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
   }
 
-  // DELETE veya boş response için JSON parse etme
-  const contentLength = response.headers.get('content-length');
-  if (options.method === 'DELETE' || contentLength === '0' || response.status === 204) {
-    return undefined as T;
+  // Add store ID if available
+  if (currentStoreId) {
+    headers['X-Store-ID'] = currentStoreId;
   }
 
-  // Response boş olabilir
-  const text = await response.text();
-  if (!text) {
-    return undefined as T;
-  }
+  const config: RequestInit = {
+    ...options,
+    headers,
+  };
 
-  return JSON.parse(text);
+  try {
+    const response = await fetch(url, config);
+
+    // Handle 401 Unauthorized
+    if (response.status === 401) {
+      logout();
+      window.location.href = '/login';
+      throw new Error('Oturum süresi doldu');
+    }
+
+    // Handle 403 Forbidden (store suspended etc)
+    if (response.status === 403) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Bu işlem için yetkiniz yok');
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `HTTP error! status: ${response.status}`);
+    }
+
+    // DELETE veya boş response için JSON parse etme
+    const contentLength = response.headers.get('content-length');
+    if (options.method === 'DELETE' || contentLength === '0' || response.status === 204) {
+      return undefined as T;
+    }
+
+    // Response boş olabilir
+    const text = await response.text();
+    if (!text) {
+      return undefined as T;
+    }
+
+    return JSON.parse(text);
+  } catch (error) {
+    // Network error - API unreachable
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new ApiConnectionError();
+    }
+    throw error;
+  }
 }
 
 // Categories API
@@ -218,6 +284,7 @@ export interface Category {
   id: string;
   name: string;
   menuId?: string | null;
+  printerId?: string | null;
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -268,6 +335,7 @@ export interface Table {
 export interface Zone {
   id: string;
   name: string;
+  prefix?: string;
   icon?: string;
   floor: number;
   sortOrder: number;
@@ -309,6 +377,7 @@ export interface ProductReport {
 export interface CreateCategoryDto {
   name: string;
   menuId?: string;
+  printerId?: string;
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -316,6 +385,7 @@ export interface CreateCategoryDto {
 export interface UpdateCategoryDto {
   name?: string;
   menuId?: string | null;
+  printerId?: string | null;
   sortOrder?: number;
   isActive?: boolean;
 }
@@ -358,6 +428,7 @@ export interface UpdateTableDto {
 
 export interface CreateZoneDto {
   name: string;
+  prefix?: string;
   icon?: string;
   floor?: number;
   sortOrder?: number;
@@ -365,6 +436,7 @@ export interface CreateZoneDto {
 
 export interface UpdateZoneDto {
   name?: string;
+  prefix?: string;
   icon?: string;
   floor?: number;
   sortOrder?: number;
@@ -641,4 +713,142 @@ export interface UpdateMenuDto {
   timeStart?: string | null;
   timeEnd?: string | null;
   activeDays?: number[] | null;
+}
+
+// Settings Types
+export interface BusinessSettings {
+  storeName: string;
+  logoUrl: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  taxNumber?: string;
+  displayVideos?: string[]; // Customer display videos (URLs or base64)
+}
+
+export interface ReceiptSettings {
+  showLogo: boolean;
+  showAddress: boolean;
+  showPhone: boolean;
+  showTaxNumber: boolean;
+  footerText: string;
+  paperWidth: '58mm' | '80mm';
+}
+
+export interface DeviceSettings {
+  kitchen: boolean;
+  waiter: boolean;
+  qrMenu: boolean;
+}
+
+export interface AllSettings {
+  business: BusinessSettings;
+  receipt: ReceiptSettings;
+  devices: DeviceSettings;
+}
+
+// Settings API
+export const settingsApi = {
+  getAll: () => request<AllSettings>('/settings'),
+  getBusiness: () => request<BusinessSettings>('/settings/business'),
+  updateBusiness: (data: Partial<BusinessSettings>) =>
+    request<BusinessSettings>('/settings/business', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  getReceipt: () => request<ReceiptSettings>('/settings/receipt'),
+  updateReceipt: (data: Partial<ReceiptSettings>) =>
+    request<ReceiptSettings>('/settings/receipt', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  getDevices: () => request<DeviceSettings>('/settings/devices'),
+  updateDevices: (data: Partial<DeviceSettings>) =>
+    request<DeviceSettings>('/settings/devices', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+};
+
+
+// Auth Types
+export interface Store {
+  id: string;
+  name: string;
+  slug: string;
+  subdomain: string | null;
+  logoUrl: string | null;
+  status: 'active' | 'suspended' | 'trial' | 'cancelled';
+  plan: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  store: Store | null;
+  accessToken: string;
+}
+
+// Auth API
+export const authApi = {
+  loginWithPin: (pin: string, storeId: string) =>
+    request<AuthResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ pin, storeId }),
+    }),
+  getProfile: () => request<User>('/auth/profile'),
+  verify: () => request<{ valid: boolean }>('/auth/verify'),
+};
+
+// Stores API (for store detection)
+export const storesApi = {
+  getBySubdomain: (subdomain: string) => request<Store>(`/stores/subdomain/${subdomain}`),
+  getBySlug: (slug: string) => request<Store>(`/stores/slug/${slug}`),
+};
+
+// Helper: Detect store from URL
+export async function detectStoreFromUrl(): Promise<Store | null> {
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  
+  // For Electron (file:// protocol), use default store "queen"
+  if (protocol === 'file:' || navigator.userAgent.includes('Electron')) {
+    try {
+      const store = await storesApi.getBySubdomain('queen');
+      return store;
+    } catch {
+      // Fallback: try to get from localStorage
+      const savedStoreId = localStorage.getItem('storeId');
+      if (savedStoreId) {
+        return { id: savedStoreId, name: 'Queen Waffle', slug: 'queen', subdomain: 'queen', logoUrl: null, status: 'active', plan: 'premium' } as Store;
+      }
+      return null;
+    }
+  }
+  
+  // Extract subdomain: queen.pixpos.cloud -> queen
+  const parts = hostname.split('.');
+  if (parts.length >= 3 && parts[0] !== 'www' && parts[0] !== 'api') {
+    try {
+      const store = await storesApi.getBySubdomain(parts[0]);
+      return store;
+    } catch {
+      return null;
+    }
+  }
+  
+  // For localhost, check query param or localStorage
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const storeSlug = urlParams.get('store');
+    if (storeSlug) {
+      try {
+        const store = await storesApi.getBySlug(storeSlug);
+        return store;
+      } catch {
+        return null;
+      }
+    }
+  }
+  
+  return null;
 }

@@ -7,7 +7,7 @@ import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { Payment } from '../entities/payment.entity';
 import { Printer } from '../entities/printer.entity';
-import { Setting } from '../entities/setting.entity';
+import { Setting } from '../modules/settings/settings.entity';
 import { InitialSchema1736780400000 } from '../migrations/1736780400000-InitialSchema';
 
 dotenv.config();

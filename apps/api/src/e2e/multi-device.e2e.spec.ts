@@ -46,7 +46,7 @@ import { Order } from '../entities/order.entity';
 import { OrderItem } from '../entities/order-item.entity';
 import { Payment } from '../entities/payment.entity';
 import { Printer } from '../entities/printer.entity';
-import { Setting } from '../entities/setting.entity';
+import { Setting } from '../modules/settings/settings.entity';
 
 // Check if E2E tests should run
 const isE2EEnabled = process.env.E2E_TEST_ENABLED === 'true';

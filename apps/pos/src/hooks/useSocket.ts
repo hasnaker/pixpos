@@ -16,6 +16,7 @@ interface ServerToClientEvents {
 interface ClientToServerEvents {
   'join:room': (data: { room: WebSocketRoom }) => void;
   'order:mark-ready': (data: { orderId: string }) => void;
+  'display:show-order': (order: Order) => void;
 }
 
 interface UseSocketOptions {
@@ -25,6 +26,70 @@ interface UseSocketOptions {
   onOrderReady?: (orderId: string, tableId: string) => void;
   onTableUpdated?: (table: Table) => void;
   onWaiterCalled?: (tableId: string, tableName: string) => void;
+}
+
+// Global socket instance for display updates
+let globalSocket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+
+// LocalStorage key for cross-window communication
+const DISPLAY_ORDER_KEY = 'pixpos_display_order';
+
+// BroadcastChannel for same-origin communication
+let displayChannel: BroadcastChannel | null = null;
+try {
+  displayChannel = new BroadcastChannel('pixpos_display');
+} catch (e) {
+  console.log('[useSocket] BroadcastChannel not supported');
+}
+
+export function sendToCustomerDisplay(order: Order | null) {
+  console.log('[sendToCustomerDisplay] Sending order:', order?.orderNumber || 'null');
+  
+  // Method 1: WebSocket (if connected)
+  if (globalSocket?.connected) {
+    globalSocket.emit('display:show-order', order as Order);
+    console.log('[sendToCustomerDisplay] Sent via WebSocket');
+  }
+  
+  // Method 2: BroadcastChannel (works across windows in same origin)
+  if (displayChannel) {
+    try {
+      displayChannel.postMessage({ type: 'order', order });
+      console.log('[sendToCustomerDisplay] Sent via BroadcastChannel');
+    } catch (e) {
+      console.error('[sendToCustomerDisplay] BroadcastChannel error:', e);
+    }
+  }
+  
+  // Method 3: LocalStorage (fallback)
+  try {
+    if (order) {
+      const data = JSON.stringify({ order, timestamp: Date.now() });
+      localStorage.setItem(DISPLAY_ORDER_KEY, data);
+      // Trigger storage event manually for same-window listeners
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: DISPLAY_ORDER_KEY,
+        newValue: data,
+      }));
+    } else {
+      localStorage.removeItem(DISPLAY_ORDER_KEY);
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: DISPLAY_ORDER_KEY,
+        newValue: null,
+      }));
+    }
+    console.log('[sendToCustomerDisplay] Sent via LocalStorage');
+  } catch (e) {
+    console.error('[sendToCustomerDisplay] LocalStorage error:', e);
+  }
+}
+
+// Clear display order
+export function clearCustomerDisplay() {
+  localStorage.removeItem(DISPLAY_ORDER_KEY);
+  if (displayChannel) {
+    displayChannel.postMessage({ type: 'clear' });
+  }
 }
 
 export function useSocket(options: UseSocketOptions) {
@@ -39,6 +104,7 @@ export function useSocket(options: UseSocketOptions) {
     });
 
     socketRef.current = socket;
+    globalSocket = socket;
 
     socket.on('connect', () => {
       console.log('WebSocket connected');
@@ -77,6 +143,9 @@ export function useSocket(options: UseSocketOptions) {
 
     return () => {
       socket.disconnect();
+      if (globalSocket === socket) {
+        globalSocket = null;
+      }
     };
   }, [room, onOrderNew, onOrderUpdated, onOrderReady, onTableUpdated, onWaiterCalled]);
 
@@ -84,5 +153,11 @@ export function useSocket(options: UseSocketOptions) {
     socketRef.current?.emit('order:mark-ready', { orderId });
   }, []);
 
-  return { markOrderReady };
+  const showOrderOnDisplay = useCallback((order: Order | null) => {
+    if (order) {
+      socketRef.current?.emit('display:show-order', order);
+    }
+  }, []);
+
+  return { markOrderReady, showOrderOnDisplay };
 }

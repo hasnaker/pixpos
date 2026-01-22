@@ -93,8 +93,11 @@ export default function TableList() {
       {/* Header */}
       <header className="h-16 px-6 flex items-center justify-between bg-white border-b border-gray-200">
         <div className="flex items-center gap-4">
-          <div className="text-xl font-bold text-gray-900">PIXPOS</div>
-          <div className="text-sm text-gray-400">Demo Cafe</div>
+          <img 
+            src={`${import.meta.env.BASE_URL}pixpos-dark.png`}
+            alt="" 
+            style={{ height: '32px' }}
+          />
         </div>
         
         <div className="text-2xl font-semibold text-gray-900 tabular-nums">

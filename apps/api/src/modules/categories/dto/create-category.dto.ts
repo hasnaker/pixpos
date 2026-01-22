@@ -10,6 +10,10 @@ export class CreateCategoryDto {
   menuId?: string;
 
   @IsOptional()
+  @IsUUID()
+  printerId?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   sortOrder?: number;

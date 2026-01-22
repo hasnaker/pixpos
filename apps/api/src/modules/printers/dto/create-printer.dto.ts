@@ -8,18 +8,22 @@ import {
   MaxLength,
   Min,
   Max,
-  IsIP,
+  IsUUID,
 } from 'class-validator';
 
 export class CreatePrinterDto {
+  @IsOptional()
+  @IsUUID()
+  storeId?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
 
   @IsString()
-  @IsIn(['kitchen', 'receipt'])
-  type: 'kitchen' | 'receipt';
+  @IsIn(['kitchen', 'bar', 'receipt'])
+  type: 'kitchen' | 'bar' | 'receipt';
 
   @IsString()
   @IsIn(['tcp', 'usb'])

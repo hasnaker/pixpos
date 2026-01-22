@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Clock, Layers, CircleDot, LayoutGrid, Trees, Umbrella, Building, Coffee, Sofa, ChevronRight, Menu, X } from 'lucide-react';
+import { LogOut, Clock, Layers, CircleDot, LayoutGrid, Trees, Umbrella, Building, Coffee, Sofa, ChevronRight, ArrowLeft } from 'lucide-react';
 import { tablesApi, ordersApi, zonesApi } from '@/services/api';
 import type { Table, Order } from '@/services/api';
 import { useSocket } from '@/hooks';
@@ -10,6 +10,7 @@ interface LoggedInWaiter {
   id: string;
   name: string;
   initials: string;
+  role?: string;
 }
 
 // Icon mapping
@@ -32,10 +33,8 @@ export default function TableList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [waiter, setWaiter] = useState<LoggedInWaiter | null>(null);
-  const [selectedZone, setSelectedZone] = useState<string>('all');
+  const [selectedZone, setSelectedZone] = useState<string | null>(null); // null = bölge seçim ekranı
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(window.innerWidth > window.innerHeight);
 
   useEffect(() => {
     const storedWaiter = localStorage.getItem('waiter');
@@ -51,23 +50,6 @@ export default function TableList() {
     return () => clearInterval(timer);
   }, []);
 
-  // Handle orientation change
-  useEffect(() => {
-    const handleResize = () => {
-      setIsLandscape(window.innerWidth > window.innerHeight);
-      // Close sidebar on orientation change in portrait
-      if (window.innerWidth <= window.innerHeight) {
-        setSidebarOpen(false);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, []);
-
   const handleLogout = () => {
     localStorage.removeItem('waiter');
     navigate('/');
@@ -76,11 +58,15 @@ export default function TableList() {
   const { data: zones = [] } = useQuery({
     queryKey: ['zones'],
     queryFn: zonesApi.getAll,
+    staleTime: 1000 * 10,
+    refetchInterval: 1000 * 30,
   });
 
   const { data: tables = [], isLoading } = useQuery({
     queryKey: ['tables'],
     queryFn: tablesApi.getAll,
+    staleTime: 1000 * 10,
+    refetchInterval: 1000 * 30,
   });
 
   const { data: orders = [] } = useQuery({
@@ -135,10 +121,24 @@ export default function TableList() {
     return 'occupied';
   };
 
-  const formatPrice = (v: number) => `₺${v.toFixed(0)}`;
   const formatTime = (d: Date) => d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 
+  // Bölge bazlı istatistikler
+  const zoneStats = useMemo(() => {
+    const stats: Record<string, { total: number; active: number }> = {};
+    zones.forEach(zone => {
+      const zoneTables = tables.filter(t => t.zone === zone.name && t.isActive);
+      const activeCount = zoneTables.filter(t => {
+        const order = getTableOrder(t.id);
+        return order && ['open', 'sent'].includes(order.status);
+      }).length;
+      stats[zone.name] = { total: zoneTables.length, active: activeCount };
+    });
+    return stats;
+  }, [zones, tables, orders]);
+
   const filteredTables = useMemo(() => {
+    if (!selectedZone) return [];
     const activeTables = tables.filter(t => t.isActive);
     if (selectedZone === 'all') return activeTables;
     if (selectedZone === 'active') {
@@ -150,576 +150,428 @@ export default function TableList() {
     return activeTables.filter(t => t.zone === selectedZone);
   }, [tables, selectedZone, orders]);
 
-  const stats = useMemo(() => {
+  const totalStats = useMemo(() => {
     const activeTables = tables.filter(t => t.isActive);
     const activeOrders = orders.filter(o => ['open', 'sent'].includes(o.status));
     return {
       total: activeTables.length,
-      empty: activeTables.filter(t => !getTableOrder(t.id)).length,
-      occupied: activeOrders.filter(o => o.status === 'open').length,
-      sent: activeOrders.filter(o => o.status === 'sent').length,
+      active: activeOrders.length,
     };
   }, [tables, orders]);
 
-  const handleZoneSelect = (zone: string) => {
-    setSelectedZone(zone);
-    if (!isLandscape) {
-      setSidebarOpen(false);
-    }
-  };
-
-  // Sidebar width based on orientation
-  const sidebarWidth = isLandscape ? '220px' : '280px';
-  const showSidebarAlways = isLandscape;
-
-  return (
-    <div style={{
-      display: 'flex',
-      height: '100vh',
-      background: '#000',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
-      paddingTop: 'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
-      paddingLeft: 'env(safe-area-inset-left)',
-      paddingRight: 'env(safe-area-inset-right)',
-    }}>
-      {/* Overlay for mobile sidebar */}
-      {!showSidebarAlways && sidebarOpen && (
-        <div 
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 40,
-          }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside style={{
-        width: sidebarWidth,
-        height: '100%',
-        background: 'rgba(28,28,30,0.98)',
-        backdropFilter: 'blur(40px)',
-        WebkitBackdropFilter: 'blur(40px)',
-        borderRight: '1px solid rgba(255,255,255,0.06)',
+  // BÖLGE SEÇİM EKRANI
+  if (selectedZone === null) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#000',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
         display: 'flex',
         flexDirection: 'column',
-        position: showSidebarAlways ? 'relative' : 'fixed',
-        left: showSidebarAlways ? 0 : (sidebarOpen ? 0 : `-${sidebarWidth}`),
-        top: 0,
-        zIndex: 50,
-        transition: 'left 0.3s ease',
-        paddingTop: 'env(safe-area-inset-top)',
       }}>
-        {/* Logo */}
-        <div style={{ 
-          padding: '20px', 
+        {/* Header */}
+        <header style={{
+          padding: '20px',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '44px',
-              height: '44px',
-              background: 'linear-gradient(135deg, #0A84FF, #5E5CE6)',
-              borderRadius: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <span style={{ color: '#fff', fontSize: '18px', fontWeight: 700 }}>P</span>
-            </div>
+            <img 
+              src={`${import.meta.env.BASE_URL}pixpos-logo.png`}
+              alt="" 
+              style={{ height: '32px' }}
+            />
             <div>
-              <h2 style={{ color: '#fff', fontSize: '16px', fontWeight: 600, margin: 0 }}>
-                PIXPOS
-              </h2>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '2px 0 0' }}>
-                Garson Paneli
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: '2px 0 0' }}>
+                {waiter?.name || 'Garson'}
               </p>
             </div>
           </div>
-          {!showSidebarAlways && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '15px',
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {formatTime(currentTime)}
+            </div>
             <button
-              onClick={() => setSidebarOpen(false)}
+              onClick={handleLogout}
               style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: 'rgba(255,255,255,0.1)',
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: 'rgba(255,69,58,0.15)',
                 border: 'none',
-                color: '#fff',
+                color: '#FF453A',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <X size={18} />
+              <LogOut size={20} />
             </button>
-          )}
-        </div>
+          </div>
+        </header>
 
-        {/* Navigation */}
-        <div style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
-          {/* Filters */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.35)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              padding: '0 8px',
-              marginBottom: '8px',
-            }}>
-              Filtreler
-            </div>
-            
+        {/* Zone Selection */}
+        <div style={{ flex: 1, padding: '24px', overflow: 'auto' }}>
+          <h2 style={{ 
+            color: '#fff', 
+            fontSize: '28px', 
+            fontWeight: 700, 
+            margin: '0 0 8px',
+            textAlign: 'center',
+          }}>
+            Bölge Seçin
+          </h2>
+          <p style={{ 
+            color: 'rgba(255,255,255,0.4)', 
+            fontSize: '15px', 
+            margin: '0 0 32px',
+            textAlign: 'center',
+          }}>
+            Sipariş almak için bir bölge seçin
+          </p>
+
+          {/* Quick Filters */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(2, 1fr)', 
+            gap: '12px',
+            marginBottom: '24px',
+          }}>
             <button
-              onClick={() => handleZoneSelect('all')}
+              onClick={() => setSelectedZone('all')}
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 14px',
-                borderRadius: '12px',
-                border: 'none',
+                padding: '20px',
+                borderRadius: '16px',
+                background: 'rgba(10,132,255,0.1)',
+                border: '1px solid rgba(10,132,255,0.3)',
                 cursor: 'pointer',
-                background: selectedZone === 'all' ? 'rgba(10,132,255,0.15)' : 'transparent',
-                color: selectedZone === 'all' ? '#0A84FF' : 'rgba(255,255,255,0.6)',
-                marginBottom: '4px',
-                transition: 'all 0.15s ease',
+                textAlign: 'left',
               }}
             >
-              <Layers size={20} strokeWidth={1.5} />
-              <span style={{ fontSize: '15px', fontWeight: 500 }}>Tüm Masalar</span>
-              <span style={{ 
-                marginLeft: 'auto', 
-                fontSize: '13px', 
-                color: 'rgba(255,255,255,0.4)',
-                fontWeight: 500,
-              }}>
-                {stats.total}
-              </span>
+              <Layers size={28} color="#0A84FF" style={{ marginBottom: '12px' }} />
+              <div style={{ color: '#fff', fontSize: '17px', fontWeight: 600 }}>Tüm Masalar</div>
+              <div style={{ color: '#0A84FF', fontSize: '14px', marginTop: '4px' }}>
+                {totalStats.total} masa
+              </div>
             </button>
-
             <button
-              onClick={() => handleZoneSelect('active')}
+              onClick={() => setSelectedZone('active')}
               style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '12px 14px',
-                borderRadius: '12px',
-                border: 'none',
+                padding: '20px',
+                borderRadius: '16px',
+                background: 'rgba(48,209,88,0.1)',
+                border: '1px solid rgba(48,209,88,0.3)',
                 cursor: 'pointer',
-                background: selectedZone === 'active' ? 'rgba(48,209,88,0.15)' : 'transparent',
-                color: selectedZone === 'active' ? '#30D158' : 'rgba(255,255,255,0.6)',
-                marginBottom: '4px',
-                transition: 'all 0.15s ease',
+                textAlign: 'left',
               }}
             >
-              <CircleDot size={20} strokeWidth={1.5} />
-              <span style={{ fontSize: '15px', fontWeight: 500 }}>Aktif Masalar</span>
-              <span style={{ 
-                marginLeft: 'auto', 
-                fontSize: '13px', 
-                color: selectedZone === 'active' ? '#30D158' : 'rgba(255,255,255,0.4)',
-                fontWeight: 500,
-              }}>
-                {stats.occupied + stats.sent}
-              </span>
+              <CircleDot size={28} color="#30D158" style={{ marginBottom: '12px' }} />
+              <div style={{ color: '#fff', fontSize: '17px', fontWeight: 600 }}>Aktif Masalar</div>
+              <div style={{ color: '#30D158', fontSize: '14px', marginTop: '4px' }}>
+                {totalStats.active} sipariş
+              </div>
             </button>
           </div>
 
-          {/* Zones */}
-          <div>
-            <div style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: 'rgba(255,255,255,0.35)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              padding: '0 8px',
-              marginBottom: '8px',
-            }}>
-              Bölgeler
-            </div>
-            
+          {/* Zone List */}
+          <div style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: 'rgba(255,255,255,0.35)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            marginBottom: '12px',
+          }}>
+            Bölgeler
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {zones.length === 0 ? (
-              <div style={{ padding: '8px 12px', fontSize: '13px', color: 'rgba(255,255,255,0.3)' }}>
-                Bölge tanımlı değil
+              <div style={{ 
+                padding: '40px', 
+                textAlign: 'center', 
+                color: 'rgba(255,255,255,0.4)',
+                background: 'rgba(255,255,255,0.04)',
+                borderRadius: '16px',
+              }}>
+                <p style={{ fontSize: '15px', margin: 0 }}>Bölge tanımlı değil</p>
+                <p style={{ fontSize: '13px', margin: '8px 0 0', color: 'rgba(255,255,255,0.3)' }}>
+                  POS'tan bölge ekleyin
+                </p>
               </div>
             ) : (
               zones.map((zone) => {
-                const isActive = selectedZone === zone.name;
                 const ZoneIcon = getZoneIcon(zone.icon);
-                const zoneTableCount = tables.filter(t => t.zone === zone.name && t.isActive).length;
+                const stats = zoneStats[zone.name] || { total: 0, active: 0 };
                 return (
                   <button
                     key={zone.id}
-                    onClick={() => handleZoneSelect(zone.name)}
+                    onClick={() => setSelectedZone(zone.name)}
                     style={{
-                      width: '100%',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      padding: '12px 14px',
-                      borderRadius: '12px',
-                      border: 'none',
+                      gap: '16px',
+                      padding: '20px',
+                      borderRadius: '16px',
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.08)',
                       cursor: 'pointer',
-                      background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                      color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
-                      marginBottom: '4px',
-                      transition: 'all 0.15s ease',
+                      textAlign: 'left',
                     }}
                   >
-                    <ZoneIcon size={20} strokeWidth={1.5} />
-                    <span style={{ fontSize: '15px', fontWeight: 500 }}>{zone.name}</span>
-                    <span style={{ 
-                      marginLeft: 'auto', 
-                      fontSize: '13px', 
-                      color: 'rgba(255,255,255,0.4)',
-                      fontWeight: 500,
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '14px',
+                      background: 'rgba(255,255,255,0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}>
-                      {zoneTableCount}
-                    </span>
+                      <ZoneIcon size={28} color="#fff" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ color: '#fff', fontSize: '18px', fontWeight: 600 }}>
+                        {zone.name}
+                      </div>
+                      <div style={{ 
+                        color: 'rgba(255,255,255,0.4)', 
+                        fontSize: '14px', 
+                        marginTop: '4px',
+                        display: 'flex',
+                        gap: '12px',
+                      }}>
+                        <span>{stats.total} masa</span>
+                        {stats.active > 0 && (
+                          <span style={{ color: '#30D158' }}>{stats.active} aktif</span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight size={24} color="rgba(255,255,255,0.3)" />
                   </button>
                 );
               })
             )}
           </div>
         </div>
+      </div>
+    );
+  }
 
-        {/* User & Logout */}
-        <div style={{
-          padding: '16px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
-        }}>
-          {waiter && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-            }}>
-              <div style={{
-                width: '44px',
-                height: '44px',
-                background: 'linear-gradient(135deg, #5E5CE6, #BF5AF2)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <span style={{ color: '#fff', fontSize: '15px', fontWeight: 600 }}>
-                  {waiter.initials}
-                </span>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ color: '#fff', fontSize: '14px', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {waiter.name}
-                </p>
-                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '2px 0 0' }}>
-                  Garson
-                </p>
-              </div>
-              <button
-                onClick={handleLogout}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '12px',
-                  background: 'rgba(255,69,58,0.15)',
-                  border: 'none',
-                  color: '#FF453A',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <LogOut size={18} />
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main style={{
-        flex: 1,
+  // MASA LİSTESİ EKRANI
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#000',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* Header */}
+      <header style={{
+        minHeight: '60px',
+        background: 'rgba(20,20,20,0.95)',
+        backdropFilter: 'blur(40px)',
+        WebkitBackdropFilter: 'blur(40px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
         display: 'flex',
-        flexDirection: 'column',
-        background: '#0A0A0A',
-        minWidth: 0,
+        alignItems: 'center',
+        padding: '12px 16px',
+        gap: '12px',
       }}>
-        {/* Header */}
-        <header style={{
-          minHeight: '60px',
-          background: 'rgba(20,20,20,0.95)',
-          backdropFilter: 'blur(40px)',
-          WebkitBackdropFilter: 'blur(40px)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        <button
+          onClick={() => setSelectedZone(null)}
+          style={{
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            background: 'rgba(255,255,255,0.1)',
+            border: 'none',
+            color: '#fff',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ArrowLeft size={20} />
+        </button>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ color: '#fff', fontSize: '18px', fontWeight: 600, margin: 0 }}>
+            {selectedZone === 'all' ? 'Tüm Masalar' : selectedZone === 'active' ? 'Aktif Masalar' : selectedZone}
+          </h1>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '2px 0 0' }}>
+            {filteredTables.length} masa
+          </p>
+        </div>
+        <div style={{
+          color: 'rgba(255,255,255,0.5)',
+          fontSize: '14px',
+          fontVariantNumeric: 'tabular-nums',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          gap: '12px',
-          flexWrap: 'wrap',
+          gap: '6px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Menu button for portrait mode */}
-            {!showSidebarAlways && (
-              <button
-                onClick={() => setSidebarOpen(true)}
-                style={{
-                  width: '44px',
-                  height: '44px',
-                  borderRadius: '12px',
-                  background: 'rgba(255,255,255,0.1)',
-                  border: 'none',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Menu size={20} />
-              </button>
-            )}
-            <h1 style={{ color: '#fff', fontSize: '18px', fontWeight: 600, margin: 0 }}>
-              {selectedZone === 'all' ? 'Tüm Masalar' : selectedZone === 'active' ? 'Aktif Masalar' : selectedZone}
-            </h1>
+          <Clock size={14} />
+          {formatTime(currentTime)}
+        </div>
+      </header>
+
+      {/* Tables Grid */}
+      <div style={{
+        flex: 1,
+        overflow: 'auto',
+        padding: '16px',
+      }}>
+        {isLoading ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '200px',
+            color: 'rgba(255,255,255,0.5)',
+          }}>
+            Yükleniyor...
           </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Compact Stats */}
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                background: 'rgba(255,255,255,0.06)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'rgba(255,255,255,0.3)' }} />
-                <span style={{ color: '#fff', fontSize: '13px', fontWeight: 600 }}>{stats.empty}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                background: 'rgba(48,209,88,0.1)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#30D158' }} />
-                <span style={{ color: '#30D158', fontSize: '13px', fontWeight: 600 }}>{stats.occupied}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 10px',
-                background: 'rgba(10,132,255,0.1)',
-                borderRadius: '8px',
-              }}>
-                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#0A84FF' }} />
-                <span style={{ color: '#0A84FF', fontSize: '13px', fontWeight: 600 }}>{stats.sent}</span>
-              </div>
-            </div>
-
-            {/* Time */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'rgba(255,255,255,0.5)',
-              fontSize: '13px',
-              padding: '6px 10px',
-              background: 'rgba(255,255,255,0.04)',
-              borderRadius: '8px',
-            }}>
-              <Clock size={14} />
-              <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatTime(currentTime)}</span>
-            </div>
+        ) : filteredTables.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '200px',
+            color: 'rgba(255,255,255,0.5)',
+          }}>
+            <p style={{ fontSize: '16px', margin: '0 0 8px' }}>Bu bölümde masa yok</p>
+            <button
+              onClick={() => setSelectedZone(null)}
+              style={{
+                marginTop: '16px',
+                padding: '12px 24px',
+                borderRadius: '12px',
+                background: 'rgba(10,132,255,0.15)',
+                border: 'none',
+                color: '#0A84FF',
+                fontSize: '15px',
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}
+            >
+              Bölge Değiştir
+            </button>
           </div>
-        </header>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+            gap: '12px',
+          }}>
+            {filteredTables.map(table => {
+              const order = getTableOrder(table.id);
+              const status = getTableStatus(order);
+              const dwellTime = getDwellTime(order);
 
-        {/* Tables Grid */}
-        <div style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: '16px',
-          paddingBottom: 'calc(16px + env(safe-area-inset-bottom))',
-        }}>
-          {isLoading ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '200px',
-              color: 'rgba(255,255,255,0.5)',
-            }}>
-              Yükleniyor...
-            </div>
-          ) : filteredTables.length === 0 ? (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '200px',
-              color: 'rgba(255,255,255,0.5)',
-            }}>
-              <p style={{ fontSize: '16px', margin: '0 0 8px' }}>Bu bölümde masa yok</p>
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.3)' }}>
-                Başka bir bölge seçin
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: isLandscape 
-                ? 'repeat(auto-fill, minmax(150px, 1fr))' 
-                : 'repeat(auto-fill, minmax(140px, 1fr))',
-              gap: '12px',
-            }}>
-              {filteredTables.map(table => {
-                const order = getTableOrder(table.id);
-                const status = getTableStatus(order);
-                const dwellTime = getDwellTime(order);
-                const amount = order?.totalAmount || 0;
-
-                return (
-                  <button
-                    key={table.id}
-                    onClick={() => navigate(`/order/${table.id}`)}
-                    style={{
-                      background: status === 'empty' 
-                        ? 'rgba(255,255,255,0.06)' 
+              return (
+                <button
+                  key={table.id}
+                  onClick={() => navigate(`/order/${table.id}`)}
+                  style={{
+                    background: status === 'empty' 
+                      ? 'rgba(255,255,255,0.06)' 
+                      : status === 'occupied'
+                        ? 'rgba(48,209,88,0.1)'
+                        : 'rgba(10,132,255,0.1)',
+                    border: `1px solid ${
+                      status === 'empty' 
+                        ? 'rgba(255,255,255,0.08)' 
                         : status === 'occupied'
-                          ? 'rgba(48,209,88,0.1)'
-                          : 'rgba(10,132,255,0.1)',
-                      border: `1px solid ${
-                        status === 'empty' 
-                          ? 'rgba(255,255,255,0.08)' 
-                          : status === 'occupied'
-                            ? 'rgba(48,209,88,0.3)'
-                            : 'rgba(10,132,255,0.3)'
-                      }`,
-                      borderRadius: '16px',
-                      padding: '16px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      textAlign: 'left',
-                      minHeight: '120px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                    }}
-                  >
-                    {/* Table Number */}
-                    <div style={{
-                      fontSize: '24px',
-                      fontWeight: 700,
-                      color: '#fff',
-                      marginBottom: '4px',
-                    }}>
-                      {table.name.replace('Masa ', '').replace('SL-', '').replace('BH-', '').replace('DS-', '')}
-                    </div>
+                          ? 'rgba(48,209,88,0.3)'
+                          : 'rgba(10,132,255,0.3)'
+                    }`,
+                    borderRadius: '16px',
+                    padding: '16px',
+                    cursor: 'pointer',
+                    textAlign: 'center',
+                    minHeight: '100px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {/* Table Name - Full name from POS */}
+                  <div style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    color: '#fff',
+                    marginBottom: '4px',
+                  }}>
+                    {table.name}
+                  </div>
 
-                    {/* Zone Badge */}
-                    {table.zone && (
-                      <div style={{
-                        fontSize: '11px',
-                        color: 'rgba(255,255,255,0.4)',
-                        marginBottom: '8px',
-                      }}>
-                        {table.zone}
-                      </div>
-                    )}
-
-                    <div style={{ flex: 1 }} />
-
-                    {/* Status Info */}
-                    {status !== 'empty' && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '11px',
-                          color: 'rgba(255,255,255,0.5)',
-                          marginBottom: '2px',
-                        }}>
-                          <Clock size={10} />
-                          <span>{dwellTime}</span>
-                        </div>
-                        <div style={{
-                          fontSize: '16px',
-                          fontWeight: 700,
-                          color: status === 'occupied' ? '#30D158' : '#0A84FF',
-                        }}>
-                          {formatPrice(Number(amount))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Status Badge */}
+                  {/* Status Info */}
+                  {status !== 'empty' && dwellTime && (
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
+                      fontSize: '12px',
+                      color: 'rgba(255,255,255,0.5)',
+                      marginTop: '4px',
                     }}>
-                      <div style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: status === 'empty' 
-                          ? 'rgba(255,255,255,0.3)' 
-                          : status === 'occupied'
-                            ? '#30D158'
-                            : '#0A84FF',
-                      }} />
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        color: status === 'empty' 
-                          ? 'rgba(255,255,255,0.4)' 
-                          : status === 'occupied'
-                            ? '#30D158'
-                            : '#0A84FF',
-                      }}>
-                        {status === 'empty' && 'Boş'}
-                        {status === 'occupied' && 'Açık'}
-                        {status === 'sent' && 'Sipariş'}
-                      </span>
-                      <ChevronRight size={12} style={{ 
-                        marginLeft: 'auto', 
-                        color: 'rgba(255,255,255,0.3)',
-                      }} />
+                      <Clock size={10} />
+                      <span>{dwellTime}</span>
                     </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </main>
+                  )}
+
+                  {/* Status Badge */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    marginTop: '8px',
+                  }}>
+                    <div style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: status === 'empty' 
+                        ? 'rgba(255,255,255,0.3)' 
+                        : status === 'occupied'
+                          ? '#30D158'
+                          : '#0A84FF',
+                    }} />
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: status === 'empty' 
+                        ? 'rgba(255,255,255,0.4)' 
+                        : status === 'occupied'
+                          ? '#30D158'
+                          : '#0A84FF',
+                    }}>
+                      {status === 'empty' && 'Boş'}
+                      {status === 'occupied' && 'Açık'}
+                      {status === 'sent' && 'Sipariş'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

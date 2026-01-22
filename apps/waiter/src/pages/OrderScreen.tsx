@@ -194,12 +194,12 @@ export default function OrderScreen() {
     );
   }
 
-  // Toplam tutar
-  const totalAmount = activeOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+  // Toplam ürün sayısı (tutar garson için gizli)
   const totalItems = activeOrders.reduce((sum, o) => sum + o.items.reduce((s, i) => s + i.quantity, 0), 0);
 
   // Layout helpers
   const showSideBySide = isLandscape;
+  const useDrawer = isPhone || device === 'tablet-portrait'; // Phone ve tablet portrait için drawer kullan
 
   return (
     <div style={{
@@ -306,18 +306,7 @@ export default function OrderScreen() {
               </p>
             )}
           </div>
-          {!isPhone && totalItems > 0 && (
-            <div style={{
-              background: 'rgba(48,209,88,0.15)',
-              color: '#30D158',
-              padding: '6px 12px',
-              borderRadius: '10px',
-              fontSize: '14px',
-              fontWeight: 600,
-            }}>
-              {formatPrice(totalAmount)}
-            </div>
-          )}
+          {/* Toplam tutar kaldırıldı - garson görmemeli */}
         </header>
 
         {/* Search */}
@@ -367,12 +356,13 @@ export default function OrderScreen() {
           </div>
         </div>
 
-        {/* Categories - Horizontal Scroll on Phone */}
+        {/* Categories - Grid on Tablet, Horizontal Scroll on Phone */}
         <div style={{
           display: 'flex',
+          flexWrap: isPhone ? 'nowrap' : 'wrap',
           gap: '8px',
           padding: '0 16px 12px',
-          overflowX: 'auto',
+          overflowX: isPhone ? 'auto' : 'visible',
           flexShrink: 0,
           WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none',
@@ -397,7 +387,7 @@ export default function OrderScreen() {
                   cursor: 'pointer',
                   transition: 'all 0.1s ease',
                   whiteSpace: 'nowrap',
-                  flexShrink: 0,
+                  flexShrink: isPhone ? 0 : 'initial',
                 }}
               >
                 {cat.name}
@@ -517,8 +507,8 @@ export default function OrderScreen() {
         </div>
       </div>
 
-      {/* Phone: Floating Cart Button */}
-      {isPhone && totalItems > 0 && !showCart && (
+      {/* Phone/Tablet Portrait: Floating Cart Button */}
+      {useDrawer && totalItems > 0 && !showCart && (
         <button
           onClick={() => setShowCart(true)}
           style={{
@@ -561,8 +551,8 @@ export default function OrderScreen() {
         </button>
       )}
 
-      {/* Phone: Send to Kitchen FAB (when cart is closed and has open order) */}
-      {isPhone && currentOpenOrder && currentOpenOrder.items.length > 0 && !showCart && (
+      {/* Phone/Tablet Portrait: Send to Kitchen FAB (when cart is closed and has open order) */}
+      {useDrawer && currentOpenOrder && currentOpenOrder.items.length > 0 && !showCart && (
         <button
           onClick={handleSendToKitchen}
           disabled={sendToKitchen.isPending}
@@ -588,12 +578,12 @@ export default function OrderScreen() {
           }}
         >
           <Send size={20} />
-          {sendToKitchen.isPending ? 'Gönderiliyor...' : `Mutfağa Gönder • ${formatPrice(totalAmount)}`}
+          {sendToKitchen.isPending ? 'Gönderiliyor...' : 'Mutfağa Gönder'}
         </button>
       )}
 
-      {/* Phone: Cart Drawer Overlay */}
-      {isPhone && showCart && (
+      {/* Phone/Tablet Portrait: Cart Drawer Overlay */}
+      {useDrawer && showCart && (
         <div 
           onClick={() => setShowCart(false)}
           style={{
@@ -605,28 +595,28 @@ export default function OrderScreen() {
         />
       )}
 
-      {/* Right Panel - Order History (Drawer on Phone) */}
+      {/* Right Panel - Order History (Drawer on Phone/Tablet Portrait, Side panel on Landscape) */}
       <div style={{
-        width: isPhone ? '100%' : showSideBySide ? '340px' : '100%',
-        height: isPhone ? '85vh' : showSideBySide ? '100vh' : '45vh',
+        width: useDrawer ? '100%' : '340px',
+        height: useDrawer ? '85vh' : '100vh',
         display: 'flex',
         flexDirection: 'column',
         background: '#1C1C1E',
         borderLeft: showSideBySide ? '1px solid rgba(255,255,255,0.06)' : 'none',
-        borderTop: !showSideBySide && !isPhone ? '1px solid rgba(255,255,255,0.06)' : 'none',
-        position: isPhone ? 'fixed' : 'relative',
-        bottom: isPhone ? 0 : 'auto',
-        left: isPhone ? 0 : 'auto',
-        right: isPhone ? 0 : 'auto',
-        transform: isPhone ? (showCart ? 'translateY(0)' : 'translateY(100%)') : 'none',
+        borderTop: 'none',
+        position: useDrawer ? 'fixed' : 'relative',
+        bottom: useDrawer ? 0 : 'auto',
+        left: useDrawer ? 0 : 'auto',
+        right: useDrawer ? 0 : 'auto',
+        transform: useDrawer ? (showCart ? 'translateY(0)' : 'translateY(100%)') : 'none',
         transition: 'transform 0.3s ease',
-        zIndex: isPhone ? 300 : 1,
-        borderTopLeftRadius: isPhone ? '20px' : 0,
-        borderTopRightRadius: isPhone ? '20px' : 0,
+        zIndex: useDrawer ? 300 : 1,
+        borderTopLeftRadius: useDrawer ? '20px' : 0,
+        borderTopRightRadius: useDrawer ? '20px' : 0,
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}>
-        {/* Drag Handle for Phone */}
-        {isPhone && (
+        {/* Drag Handle for Phone/Tablet Portrait */}
+        {useDrawer && (
           <div style={{
             display: 'flex',
             justifyContent: 'center',
@@ -665,7 +655,7 @@ export default function OrderScreen() {
               {activeOrders.some(o => o.status === 'sent') ? 'Sipariş Alındı' : 'Açık'}
             </span>
           )}
-          {isPhone && (
+          {useDrawer && (
             <button
               onClick={() => setShowCart(false)}
               style={{
@@ -882,7 +872,7 @@ export default function OrderScreen() {
           </div>
         )}
 
-        {/* Footer - Total */}
+        {/* Footer - Garson için tutar gizli */}
         {activeOrders.length > 0 && (
           <div style={{
             padding: '16px 20px',
@@ -891,15 +881,12 @@ export default function OrderScreen() {
           }}>
             <div style={{
               display: 'flex',
-              justifyContent: 'space-between',
+              justifyContent: 'center',
               alignItems: 'center',
               marginBottom: '12px',
             }}>
               <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
-                Toplam ({totalItems} ürün)
-              </span>
-              <span style={{ color: '#fff', fontSize: '22px', fontWeight: 700 }}>
-                {formatPrice(totalAmount)}
+                {totalItems} ürün
               </span>
             </div>
             

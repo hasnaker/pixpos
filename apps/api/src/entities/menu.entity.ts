@@ -5,13 +5,21 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
 import { Category } from './category.entity';
+import { Store } from './store.entity';
 
 @Entity('menus')
+@Index(['storeId'])
 export class Menu {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', type: 'uuid', nullable: true })
+  storeId: string | null;
 
   @Column({ length: 100 })
   name: string;
@@ -44,6 +52,11 @@ export class Menu {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  // Relations
+  @ManyToOne(() => Store, (store) => store.menus)
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @OneToMany(() => Category, (category) => category.menu)
   categories: Category[];

@@ -13,6 +13,7 @@ import { Order } from '../../entities/order.entity';
 import { Table } from '../../entities/table.entity';
 import { CreatePaymentDto } from './dto';
 import { AutoPrintService } from '../printers/auto-print.service';
+import { WebsocketGateway } from '../websocket/websocket.gateway';
 
 @Injectable()
 export class PaymentsService {
@@ -23,6 +24,7 @@ export class PaymentsService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Table)
     private readonly tableRepository: Repository<Table>,
+    private readonly websocketGateway: WebsocketGateway,
     @Optional() @Inject(forwardRef(() => AutoPrintService))
     private readonly autoPrintService?: AutoPrintService,
   ) {}
@@ -98,6 +100,9 @@ export class PaymentsService {
       if (order.tableId) {
         await this.closeTableIfNoOpenOrders(order.tableId);
       }
+
+      // Clear customer display
+      this.websocketGateway.emitDisplayClear();
     }
 
     // Trigger auto-print for receipt

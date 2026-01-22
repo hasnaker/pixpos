@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkPrinter: (ip, port) => ipcRenderer.invoke('check-printer', ip, port),
   getLocalSubnet: () => ipcRenderer.invoke('get-local-subnet'),
   
+  // Direct printing from Electron (local network)
+  printReceipt: (data) => ipcRenderer.invoke('print-receipt', data),
+  printKitchenTicket: (data) => ipcRenderer.invoke('print-kitchen-ticket', data),
+  
   // ÖKC (Ingenico) - Local TCP connection
   okcTestConnection: (ip, port) => ipcRenderer.invoke('okc-test-connection', ip, port),
   okcScanPorts: (ip) => ipcRenderer.invoke('okc-scan-ports', ip),

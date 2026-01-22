@@ -392,18 +392,21 @@ export class OrdersService {
       throw new BadRequestException('Some orders not found');
     }
 
-    // Validate all orders are open
+    // Validate all orders are open or sent (active orders)
     for (const order of orders) {
-      if (order.status !== 'open') {
-        throw new BadRequestException(`Order ${order.orderNumber} is not open`);
+      if (order.status !== 'open' && order.status !== 'sent') {
+        throw new BadRequestException(`Order ${order.orderNumber} is not active (must be open or sent)`);
       }
     }
 
+    // Determine merged order status - if any order is 'sent', merged should be 'sent'
+    const hasSentOrder = orders.some(o => o.status === 'sent');
+    
     // Create merged order
     const mergedOrder = this.orderRepository.create({
       tableId: mergeDto.targetTableId,
       orderNumber: this.generateOrderNumber(),
-      status: 'open',
+      status: hasSentOrder ? 'sent' : 'open',
       totalAmount: 0,
       notes: orders.map((o) => o.notes).filter(Boolean).join(' | ') || null,
     });
@@ -679,24 +682,77 @@ export class OrdersService {
     };
   }
 
+  // Store the current display order ID (in-memory, resets on server restart)
+  private currentDisplayOrderId: string | null = null;
+
   /**
-   * Get current active order for customer display
-   * Returns the most recently updated open/sent order
+   * Set the order to show on customer display
+   * Called when POS clicks "Ekrana Gönder" button
    */
-  async getCurrentDisplayOrder(): Promise<Order | null> {
+  async setDisplayOrder(orderId: string | null): Promise<{ success: boolean; order?: Order }> {
+    if (!orderId) {
+      this.currentDisplayOrderId = null;
+      // Emit clear event via WebSocket
+      this.websocketGateway.server.emit('display:update', null);
+      return { success: true };
+    }
+
     const order = await this.orderRepository.findOne({
-      where: {
-        status: In(['open', 'sent']),
-      },
+      where: { id: orderId },
       relations: ['items', 'table'],
-      order: { updatedAt: 'DESC' },
     });
 
-    if (order && order.table) {
+    if (!order) {
+      return { success: false };
+    }
+
+    this.currentDisplayOrderId = orderId;
+
+    // Add tableName for display
+    if (order.table) {
+      (order as any).tableName = order.table.name;
+    }
+
+    // Emit to customer display via WebSocket
+    this.websocketGateway.server.emit('display:update', order);
+
+    return { success: true, order };
+  }
+
+  /**
+   * Get current active order for customer display
+   * Returns the explicitly set display order, or null
+   */
+  async getCurrentDisplayOrder(): Promise<Order | null> {
+    // If no display order is set, return null
+    if (!this.currentDisplayOrderId) {
+      return null;
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: { id: this.currentDisplayOrderId },
+      relations: ['items', 'table'],
+    });
+
+    // If order doesn't exist or is closed, clear the display
+    if (!order || order.status === 'paid' || order.status === 'cancelled') {
+      this.currentDisplayOrderId = null;
+      return null;
+    }
+
+    if (order.table) {
       (order as any).tableName = order.table.name;
     }
 
     return order;
+  }
+
+  /**
+   * Clear the customer display
+   */
+  async clearDisplayOrder(): Promise<void> {
+    this.currentDisplayOrderId = null;
+    this.websocketGateway.server.emit('display:update', null);
   }
 
   /**
@@ -727,5 +783,81 @@ export class OrdersService {
       console.error('Print receipt error:', error);
       return { success: false, message: 'Yazdırma hatası' };
     }
+  }
+
+  /**
+   * Apply discount to order
+   * @param orderId Order ID
+   * @param type 'percent' or 'amount'
+   * @param value Discount value (percentage or fixed amount)
+   */
+  async applyDiscount(orderId: string, type: 'percent' | 'amount', value: number): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.status === 'paid' || order.status === 'cancelled') {
+      throw new BadRequestException('Kapalı siparişe indirim uygulanamaz');
+    }
+
+    if (value <= 0) {
+      throw new BadRequestException('İndirim değeri 0\'dan büyük olmalı');
+    }
+
+    // Calculate subtotal (before discount)
+    const subtotal = this.calculateOrderTotal(order.items);
+    
+    let discountAmount: number;
+    
+    if (type === 'percent') {
+      if (value > 100) {
+        throw new BadRequestException('İndirim oranı %100\'den fazla olamaz');
+      }
+      discountAmount = (subtotal * value) / 100;
+    } else {
+      if (value > subtotal) {
+        throw new BadRequestException('İndirim tutarı sipariş tutarından fazla olamaz');
+      }
+      discountAmount = value;
+    }
+
+    // Store discount info
+    (order as any).discountType = type;
+    (order as any).discountValue = value;
+    (order as any).discountAmount = discountAmount;
+    
+    // Update total
+    order.totalAmount = subtotal - discountAmount;
+
+    const savedOrder = await this.orderRepository.save(order);
+    
+    // Notify via WebSocket
+    this.websocketGateway.emitOrderUpdated(savedOrder);
+    
+    return savedOrder;
+  }
+
+  /**
+   * Remove discount from order
+   */
+  async removeDiscount(orderId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.status === 'paid' || order.status === 'cancelled') {
+      throw new BadRequestException('Kapalı siparişten indirim kaldırılamaz');
+    }
+
+    // Remove discount info
+    (order as any).discountType = null;
+    (order as any).discountValue = null;
+    (order as any).discountAmount = null;
+    
+    // Recalculate total
+    order.totalAmount = this.calculateOrderTotal(order.items);
+
+    const savedOrder = await this.orderRepository.save(order);
+    
+    // Notify via WebSocket
+    this.websocketGateway.emitOrderUpdated(savedOrder);
+    
+    return savedOrder;
   }
 }

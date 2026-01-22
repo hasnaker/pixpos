@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  Headers,
 } from '@nestjs/common';
 import { PrintersService } from './printers.service';
 import { PrintService } from './print.service';
@@ -32,11 +33,12 @@ export class PrintersController {
   @Get()
   async findAll(
     @Query('type') type?: 'kitchen' | 'bar' | 'receipt',
+    @Headers('x-store-id') storeId?: string,
   ): Promise<Printer[]> {
     if (type) {
-      return this.printersService.findByType(type);
+      return this.printersService.findByType(type, storeId);
     }
-    return this.printersService.findAll();
+    return this.printersService.findAll(storeId);
   }
 
   @Get(':id')
@@ -45,8 +47,13 @@ export class PrintersController {
   }
 
   @Post()
-  async create(@Body() createPrinterDto: CreatePrinterDto): Promise<Printer> {
-    return this.printersService.create(createPrinterDto);
+  async create(
+    @Body() createPrinterDto: CreatePrinterDto,
+    @Headers('x-store-id') headerStoreId?: string,
+  ): Promise<Printer> {
+    // Use storeId from body or header
+    const storeId = createPrinterDto.storeId || headerStoreId;
+    return this.printersService.create({ ...createPrinterDto, storeId });
   }
 
   @Put(':id')

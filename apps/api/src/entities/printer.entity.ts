@@ -3,15 +3,23 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  Index,
 } from 'typeorm';
+import { Store } from './store.entity';
 
 export type PrinterType = 'kitchen' | 'bar' | 'receipt';
 export type ConnectionType = 'tcp' | 'usb';
 
 @Entity('printers')
+@Index(['storeId'])
 export class Printer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', type: 'uuid', nullable: true })
+  storeId: string | null;
 
   @Column({ length: 100 })
   name: string;
@@ -33,4 +41,9 @@ export class Printer {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  // Relations
+  @ManyToOne(() => Store, (store) => store.printers)
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 }

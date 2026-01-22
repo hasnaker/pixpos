@@ -5,6 +5,16 @@ import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useSettings } from '@/contexts';
 import { tablesApi, printersApi } from '@/services/api';
 
+// Check if running in Electron
+const isElectron = typeof window !== 'undefined' && 
+  typeof (window as any).electronAPI !== 'undefined' && 
+  (window as any).electronAPI?.isElectron === true;
+
+// Get API URL
+const API_URL = isElectron 
+  ? 'https://api.pixpos.cloud/api'
+  : (import.meta.env.VITE_API_URL || '/api');
+
 // Local imports
 import { TABS, type User } from './types';
 import { useSettingsStorage } from './hooks';
@@ -44,7 +54,7 @@ export default function SettingsScreen() {
   // Mutations
   const closeAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/orders/close-all', { method: 'POST' });
+      const response = await fetch(`${API_URL}/orders/close-all`, { method: 'POST' });
       if (!response.ok) throw new Error('Failed');
       return response.json();
     },

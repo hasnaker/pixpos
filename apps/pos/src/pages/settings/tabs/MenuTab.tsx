@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Upload, Download, X, Image, Search, FolderPlus, Camera, Sparkles, FileText, Loader2, Check, AlertCircle, ChevronLeft, ChevronRight, Crop, BookOpen, Star, ChevronDown } from 'lucide-react';
-import { productsApi, categoriesApi, aiApi, menusApi } from '@/services/api';
-import type { Product, Category, ExtractedProduct, Menu } from '@/services/api';
+import { Plus, Pencil, Trash2, Upload, Download, X, Image, Search, FolderPlus, Camera, Sparkles, FileText, Loader2, Check, AlertCircle, ChevronLeft, ChevronRight, Crop, BookOpen, Star, ChevronDown, Printer } from 'lucide-react';
+import { productsApi, categoriesApi, aiApi, menusApi, printersApi } from '@/services/api';
+import type { Product, Category, ExtractedProduct, Menu, Printer as PrinterType } from '@/services/api';
 import { cardStyle } from '../styles';
 import ReactCrop, { type Crop as CropType, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
@@ -30,7 +30,7 @@ export default function MenuTab() {
 
   // Form states
   const [productForm, setProductForm] = useState({ name: '', price: '', categoryId: '', description: '', imageUrl: '', menuId: '' });
-  const [categoryForm, setCategoryForm] = useState({ name: '', menuId: '' });
+  const [categoryForm, setCategoryForm] = useState({ name: '', menuId: '', printerId: '' });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Import mapping states
@@ -92,6 +92,7 @@ export default function MenuTab() {
   const { data: products = [] } = useQuery({ queryKey: ['products'], queryFn: productsApi.getAll });
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.getAll });
   const { data: menus = [] } = useQuery({ queryKey: ['menus'], queryFn: menusApi.getAll });
+  const { data: printers = [] } = useQuery({ queryKey: ['printers'], queryFn: printersApi.getAll });
 
   // Mutations
   const createProductMutation = useMutation({
@@ -159,7 +160,7 @@ export default function MenuTab() {
   const closeCategoryModal = () => {
     setShowCategoryModal(false);
     setEditingCategory(null);
-    setCategoryForm({ name: '', menuId: '' });
+    setCategoryForm({ name: '', menuId: '', printerId: '' });
   };
 
   const closeMenuModal = () => {
@@ -185,7 +186,7 @@ export default function MenuTab() {
 
   const openEditCategory = (category: Category) => {
     setEditingCategory(category);
-    setCategoryForm({ name: category.name, menuId: category.menuId || '' });
+    setCategoryForm({ name: category.name, menuId: category.menuId || '', printerId: category.printerId || '' });
     setShowCategoryModal(true);
   };
 
@@ -229,6 +230,7 @@ export default function MenuTab() {
     const data = {
       name: categoryForm.name,
       menuId: categoryForm.menuId || undefined,
+      printerId: categoryForm.printerId || undefined,
     };
     if (editingCategory) {
       updateCategoryMutation.mutate({ id: editingCategory.id, data });
@@ -1725,6 +1727,29 @@ export default function MenuTab() {
                   <option value="">Menü Seçin (Opsiyonel)</option>
                   {menus.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Printer size={14} />
+                  Mutfak Yazıcısı
+                </label>
+                <select
+                  value={categoryForm.printerId}
+                  onChange={e => setCategoryForm({ ...categoryForm, printerId: e.target.value })}
+                  style={{
+                    width: '100%', padding: '14px 16px', borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#fff', fontSize: '15px', cursor: 'pointer',
+                  }}
+                >
+                  <option value="">Varsayılan Yazıcı</option>
+                  {printers.filter(p => p.type === 'kitchen' || p.type === 'bar').map(p => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.type === 'kitchen' ? 'Mutfak' : 'Bar'})</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '6px' }}>
+                  Bu kategorideki ürünler seçilen yazıcıya gönderilir
+                </p>
               </div>
               <button
                 onClick={handleCategorySubmit}

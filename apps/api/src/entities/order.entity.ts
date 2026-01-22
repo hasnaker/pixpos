@@ -7,18 +7,25 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Table } from './table.entity';
 import { OrderItem } from './order-item.entity';
 import { Payment } from './payment.entity';
 import { User } from './user.entity';
+import { Store } from './store.entity';
 
 export type OrderStatus = 'open' | 'sent' | 'paid' | 'cancelled';
 
 @Entity('orders')
+@Index(['storeId'])
+@Index(['storeId', 'status'])
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', type: 'uuid', nullable: true })
+  storeId: string | null;
 
   @Column({ name: 'table_id', type: 'uuid', nullable: true })
   tableId: string | null;
@@ -38,6 +45,16 @@ export class Order {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  // Discount fields
+  @Column({ name: 'discount_type', type: 'varchar', length: 20, nullable: true })
+  discountType: string | null;
+
+  @Column({ name: 'discount_value', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  discountValue: number | null;
+
+  @Column({ name: 'discount_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  discountAmount: number | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -46,6 +63,10 @@ export class Order {
 
   @Column({ name: 'closed_at', type: 'timestamp', nullable: true })
   closedAt: Date | null;
+
+  @ManyToOne(() => Store, (store) => store.orders)
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @ManyToOne(() => Table, (table) => table.orders, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'table_id' })

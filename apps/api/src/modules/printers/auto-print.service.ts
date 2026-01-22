@@ -284,6 +284,26 @@ export class AutoPrintService {
   }
 
   /**
+   * Get the configured or default bar printer
+   */
+  private async getBarPrinter() {
+    if (this.config.barPrinterId) {
+      try {
+        const printer = await this.printersService.findOne(this.config.barPrinterId);
+        if (printer.isActive) {
+          return printer;
+        }
+      } catch {
+        this.logger.warn(`Configured bar printer ${this.config.barPrinterId} not found`);
+      }
+    }
+
+    // Fall back to first active bar printer
+    const barPrinters = await this.printersService.findByType('bar');
+    return barPrinters.length > 0 ? barPrinters[0] : null;
+  }
+
+  /**
    * Get the configured or default receipt printer
    */
   private async getReceiptPrinter() {

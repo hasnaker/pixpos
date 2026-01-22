@@ -24,6 +24,7 @@ export interface SaleRequest {
   amount: number;        // Kuruş cinsinden (örn: 10000 = 100.00 TL)
   orderId: string;       // Sipariş numarası
   description?: string;  // İşlem açıklaması
+  paymentType?: 'cash' | 'card';  // Ödeme tipi (nakit veya kart)
 }
 
 export interface SaleResponse {
@@ -109,7 +110,8 @@ export class IngenicoService {
    * POS'tan ödeme alındığında bu metod çağrılır
    */
   async sale(request: SaleRequest): Promise<SaleResponse> {
-    this.logger.log(`Sale request: ${request.amount} kuruş, Order: ${request.orderId}`);
+    const paymentTypeLabel = request.paymentType === 'cash' ? 'NAKİT' : 'KART';
+    this.logger.log(`Sale request [${paymentTypeLabel}]: ${request.amount / 100} TL, Order: ${request.orderId}`);
 
     try {
       // ECR protokolü ile satış mesajı oluştur
@@ -241,16 +243,20 @@ export class IngenicoService {
    * NOT: Gerçek protokol Ingenico'nun ECR dokümantasyonuna göre ayarlanmalı
    */
   private buildSaleMessage(request: SaleRequest): string {
-    // Basit ECR formatı - gerçek implementasyonda Ingenico protokolüne uygun olmalı
+    // Nakit için 0200, Kart için 0200 (aynı message type, farklı field)
+    // Bazı ÖKC'lerde nakit için 0210 kullanılır
+    const messageType = request.paymentType === 'cash' ? '0210' : '0200';
+    
     const fields = {
-      messageType: '0200',           // Sale
+      messageType,
       amount: request.amount.toString().padStart(12, '0'),
       orderId: request.orderId.padEnd(20, ' '),
       terminalId: (this.config.terminalId || '00000001').padStart(8, '0'),
+      paymentType: request.paymentType === 'cash' ? '01' : '02', // 01=Nakit, 02=Kart
     };
 
     // STX + Data + ETX + LRC formatı
-    const data = `${fields.messageType}${fields.amount}${fields.orderId}${fields.terminalId}`;
+    const data = `${fields.messageType}${fields.amount}${fields.orderId}${fields.terminalId}${fields.paymentType}`;
     return `\x02${data}\x03`;
   }
 

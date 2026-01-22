@@ -273,7 +273,7 @@ function createMenu() {
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: 'PIXPOS Kasa',
-              message: 'PIXPOS Kasa v1.0.0',
+              message: 'PIXPOS Kasa v1.4.7',
               detail: 'Modern POS Sistemi\n\n© 2026 PIXPOS',
             });
           },
@@ -393,6 +393,315 @@ ipcMain.handle('check-printer', async (event, ip, port) => {
 
 ipcMain.handle('get-local-subnet', () => {
   return detectSubnet();
+});
+
+// ============ RECEIPT PRINTING IPC HANDLERS ============
+
+/**
+ * ESC/POS Commands
+ */
+const ESC_POS = {
+  INIT: Buffer.from([0x1b, 0x40]),
+  LF: Buffer.from([0x0a]),
+  CUT: Buffer.from([0x1d, 0x56, 0x01]),
+  FULL_CUT: Buffer.from([0x1d, 0x56, 0x00]),
+  ALIGN_LEFT: Buffer.from([0x1b, 0x61, 0x00]),
+  ALIGN_CENTER: Buffer.from([0x1b, 0x61, 0x01]),
+  ALIGN_RIGHT: Buffer.from([0x1b, 0x61, 0x02]),
+  TEXT_NORMAL: Buffer.from([0x1b, 0x21, 0x00]),
+  TEXT_DOUBLE_HEIGHT: Buffer.from([0x1b, 0x21, 0x10]),
+  TEXT_DOUBLE_WIDTH: Buffer.from([0x1b, 0x21, 0x20]),
+  TEXT_DOUBLE: Buffer.from([0x1b, 0x21, 0x30]),
+  BOLD_ON: Buffer.from([0x1b, 0x45, 0x01]),
+  BOLD_OFF: Buffer.from([0x1b, 0x45, 0x00]),
+  FEED_3_LINES: Buffer.from([0x1b, 0x64, 0x03]),
+  FEED_5_LINES: Buffer.from([0x1b, 0x64, 0x05]),
+  CODE_PAGE_TURKISH: Buffer.from([0x1b, 0x74, 0x24]),
+};
+
+/**
+ * Turkish character map for CP857
+ */
+const TURKISH_CHAR_MAP = {
+  'ç': 0x87, 'Ç': 0x80,
+  'ğ': 0xA7, 'Ğ': 0xA6,
+  'ı': 0x8D, 'İ': 0x98,
+  'ö': 0x94, 'Ö': 0x99,
+  'ş': 0x9F, 'Ş': 0x9E,
+  'ü': 0x81, 'Ü': 0x9A,
+};
+
+/**
+ * Convert Turkish text to CP857 encoding
+ */
+function convertToTurkish(text) {
+  const bytes = [];
+  for (const char of text) {
+    if (TURKISH_CHAR_MAP[char] !== undefined) {
+      bytes.push(TURKISH_CHAR_MAP[char]);
+    } else {
+      const code = char.charCodeAt(0);
+      if (code < 128) {
+        bytes.push(code);
+      } else {
+        bytes.push(0x3F); // ?
+      }
+    }
+  }
+  return Buffer.from(bytes);
+}
+
+/**
+ * Format line with left and right alignment
+ */
+function formatLine(left, right, width = 48) {
+  const spaces = width - left.length - right.length;
+  if (spaces < 1) {
+    return left.substring(0, width - right.length - 1) + ' ' + right + '\n';
+  }
+  return left + ' '.repeat(spaces) + right + '\n';
+}
+
+/**
+ * Create separator line
+ */
+function createSeparator(char = '-', length = 48) {
+  return char.repeat(length) + '\n';
+}
+
+/**
+ * Format price
+ */
+function formatPrice(amount) {
+  return `${Number(amount).toFixed(2)} TL`;
+}
+
+/**
+ * Build ESC/POS buffer
+ */
+function buildBuffer(parts) {
+  const buffers = [ESC_POS.CODE_PAGE_TURKISH];
+  for (const part of parts) {
+    if (Buffer.isBuffer(part)) {
+      buffers.push(part);
+    } else {
+      buffers.push(convertToTurkish(part));
+    }
+  }
+  return Buffer.concat(buffers);
+}
+
+/**
+ * Format receipt for printing
+ */
+function formatReceipt(order, businessName = 'QUEEN WAFFLE') {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('tr-TR');
+  const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  
+  const parts = [
+    ESC_POS.INIT,
+    ESC_POS.ALIGN_CENTER,
+    '\n',
+    '       .:::.       \n',
+    '      :::::::      \n',
+    ESC_POS.TEXT_DOUBLE,
+    ESC_POS.BOLD_ON,
+    '\n',
+    `${businessName}\n`,
+    ESC_POS.BOLD_OFF,
+    ESC_POS.TEXT_NORMAL,
+    'Premium Waffle & Dessert\n',
+    '\n',
+    createSeparator('='),
+    
+    ESC_POS.ALIGN_LEFT,
+    formatLine(`Tarih: ${dateStr}`, `Saat: ${timeStr}`),
+    formatLine(`Masa: ${order.tableName || 'Bilinmiyor'}`, `Fis: #${order.orderNumber}`),
+    createSeparator('-'),
+  ];
+  
+  // Items
+  for (const item of order.items) {
+    parts.push(`${item.productName}\n`);
+    parts.push(formatLine(`  ${item.quantity} x ${formatPrice(item.unitPrice)}`, formatPrice(item.totalPrice)));
+  }
+  
+  parts.push(createSeparator('-'));
+  
+  // Discount if any
+  if (order.discountAmount && order.discountAmount > 0) {
+    parts.push(formatLine('Indirim:', `-${formatPrice(order.discountAmount)}`));
+  }
+  
+  parts.push(createSeparator('='));
+  
+  // Total
+  parts.push(ESC_POS.BOLD_ON);
+  parts.push(ESC_POS.TEXT_DOUBLE);
+  parts.push(ESC_POS.ALIGN_CENTER);
+  parts.push(`TOPLAM: ${formatPrice(order.totalAmount)}\n`);
+  parts.push(ESC_POS.TEXT_NORMAL);
+  parts.push(ESC_POS.BOLD_OFF);
+  parts.push(ESC_POS.ALIGN_LEFT);
+  
+  parts.push(createSeparator('='));
+  
+  // Footer
+  parts.push(ESC_POS.ALIGN_CENTER);
+  parts.push('\n');
+  parts.push('Bizi tercih ettiginiz icin\n');
+  parts.push('tesekkur ederiz!\n');
+  parts.push('\n');
+  parts.push('    powered by PIXPOS    \n');
+  parts.push(createSeparator('='));
+  
+  parts.push(ESC_POS.FEED_5_LINES);
+  parts.push(ESC_POS.CUT);
+  
+  return buildBuffer(parts);
+}
+
+/**
+ * Send data to printer via TCP
+ */
+function sendToPrinter(ip, port, data) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    socket.setTimeout(5000);
+
+    socket.on('connect', () => {
+      socket.write(data, (err) => {
+        if (err) {
+          console.error(`Print write error: ${err.message}`);
+          socket.destroy();
+          resolve({ success: false, message: `Yazma hatasi: ${err.message}` });
+        } else {
+          socket.end();
+          console.log(`Print job sent to ${ip}:${port}`);
+          resolve({ success: true, message: 'Adisyon yazdirildi' });
+        }
+      });
+    });
+
+    socket.on('timeout', () => {
+      socket.destroy();
+      resolve({ success: false, message: 'Baglanti zaman asimi' });
+    });
+
+    socket.on('error', (err) => {
+      socket.destroy();
+      resolve({ success: false, message: `Baglanti hatasi: ${err.message}` });
+    });
+
+    socket.connect(port, ip);
+  });
+}
+
+/**
+ * Print receipt directly from Electron
+ */
+ipcMain.handle('print-receipt', async (event, { order, printerIp, printerPort, businessName }) => {
+  try {
+    console.log(`Printing receipt for order ${order.orderNumber} to ${printerIp}:${printerPort}`);
+    const receiptBuffer = formatReceipt(order, businessName);
+    const result = await sendToPrinter(printerIp, printerPort || 9100, receiptBuffer);
+    return result;
+  } catch (error) {
+    console.error('Print receipt error:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+/**
+ * Print kitchen ticket directly from Electron
+ */
+ipcMain.handle('print-kitchen-ticket', async (event, { order, printerIp, printerPort }) => {
+  try {
+    console.log(`Printing kitchen ticket for order ${order.orderNumber} to ${printerIp}:${printerPort}`);
+    
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('tr-TR');
+    const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    
+    const parts = [
+      ESC_POS.INIT,
+      ESC_POS.ALIGN_CENTER,
+      '\n',
+      '       .:::.       \n',
+      '      :::::::      \n',
+      ESC_POS.TEXT_DOUBLE,
+      ESC_POS.BOLD_ON,
+      '\n',
+      'QUEEN WAFFLE\n',
+      ESC_POS.BOLD_OFF,
+      ESC_POS.TEXT_NORMAL,
+      'Premium Waffle & Dessert\n',
+      '\n',
+      createSeparator('='),
+      
+      // Order number big
+      ESC_POS.ALIGN_CENTER,
+      ESC_POS.TEXT_DOUBLE,
+      ESC_POS.BOLD_ON,
+      `#${order.orderNumber}\n`,
+      ESC_POS.BOLD_OFF,
+      ESC_POS.TEXT_NORMAL,
+      '\n',
+      createSeparator('-'),
+      
+      // Table & time
+      ESC_POS.ALIGN_LEFT,
+      ESC_POS.TEXT_DOUBLE_HEIGHT,
+      ESC_POS.BOLD_ON,
+      `MASA: ${order.tableName || 'Bilinmiyor'}\n`,
+      ESC_POS.BOLD_OFF,
+      ESC_POS.TEXT_NORMAL,
+      '\n',
+      formatLine(`Tarih: ${dateStr}`, `Saat: ${timeStr}`),
+      '\n',
+      createSeparator('='),
+      
+      // Items header
+      ESC_POS.ALIGN_CENTER,
+      ESC_POS.BOLD_ON,
+      '[ SIPARIS DETAYI ]\n',
+      ESC_POS.BOLD_OFF,
+      ESC_POS.ALIGN_LEFT,
+      '\n',
+    ];
+    
+    // Items
+    for (const item of order.items) {
+      parts.push(ESC_POS.TEXT_DOUBLE_HEIGHT);
+      parts.push(ESC_POS.BOLD_ON);
+      parts.push(`  ${item.quantity}x ${item.productName}\n`);
+      parts.push(ESC_POS.BOLD_OFF);
+      parts.push(ESC_POS.TEXT_NORMAL);
+      if (item.notes) {
+        parts.push(`     >> ${item.notes}\n`);
+      }
+      parts.push('\n');
+    }
+    
+    parts.push(createSeparator('='));
+    
+    // Footer
+    parts.push(ESC_POS.ALIGN_CENTER);
+    parts.push('\n');
+    parts.push('    powered by PIXPOS    \n');
+    parts.push(createSeparator('='));
+    
+    parts.push(ESC_POS.FEED_5_LINES);
+    parts.push(ESC_POS.CUT);
+    
+    const ticketBuffer = buildBuffer(parts);
+    const result = await sendToPrinter(printerIp, printerPort || 9100, ticketBuffer);
+    return result;
+  } catch (error) {
+    console.error('Print kitchen ticket error:', error);
+    return { success: false, message: error.message };
+  }
 });
 
 // ============ ÖKC (Ingenico) IPC HANDLERS ============

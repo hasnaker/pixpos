@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { HashRouter, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQueryClient, useQuery } from '@tanstack/react-query';
+import { io, Socket } from 'socket.io-client';
 
 // Detect if running in Electron (file:// protocol)
 const isElectron = typeof window !== 'undefined' && (
@@ -10,8 +11,16 @@ const isElectron = typeof window !== 'undefined' && (
 import { LockScreen, TableMap, OrderScreen, PaymentScreen, SettingsScreen, CustomerDisplay } from '@/pages';
 import { MainLayout } from '@/components/layout';
 import { SettingsProvider } from '@/contexts';
-import { ordersApi } from '@/services/api';
+import { ordersApi, printersApi, tablesApi, categoriesApi, productsApi } from '@/services/api';
 import SplashScreen from '@/components/SplashScreen';
+
+// Track orders that POS itself sent to kitchen (to avoid double printing)
+const sentFromPOS = new Set<string>();
+export function markOrderSentFromPOS(orderId: string) {
+  sentFromPOS.add(orderId);
+  // Clean up after 5 minutes
+  setTimeout(() => sentFromPOS.delete(orderId), 5 * 60 * 1000);
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,10 +34,11 @@ const queryClient = new QueryClient({
 function AppRoutes() {
   const [showSplash, setShowSplash] = useState(true);
   const queryClientHook = useQueryClient();
-  const [selectedFloor, setSelectedFloor] = useState('Salon');
+  const [selectedFloor, setSelectedFloor] = useState('all');
   const [actionMode, setActionMode] = useState<'merge' | 'transfer' | 'split' | null>(null);
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
 
   // Get active orders to find order IDs for selected tables
   const { data: orders = [] } = useQuery({
@@ -36,6 +46,151 @@ function AppRoutes() {
     queryFn: () => ordersApi.getAll(),
     enabled: !showSplash, // Only fetch when splash is done
   });
+
+  // Global WebSocket listener for kitchen printing (tablet orders)
+  useEffect(() => {
+    if (showSplash) return;
+    
+    // Only run in Electron (EXE) - web can't print to local printers
+    if (!isElectron || !window.electronAPI?.printKitchenTicket) {
+      console.log('Kitchen print listener: Not in Electron, skipping');
+      return;
+    }
+
+    const wsUrl = import.meta.env.VITE_WS_URL || 'https://api.pixpos.cloud';
+    const socket = io(wsUrl, { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Kitchen print listener: WebSocket connected');
+      socket.emit('join:room', { room: 'pos' });
+    });
+
+    // Handler for printing kitchen tickets
+    const handleKitchenPrint = async (order: any) => {
+      // Only print if status is 'sent' and not sent from this POS
+      if (order.status !== 'sent') return;
+      if (sentFromPOS.has(order.id)) {
+        console.log(`Kitchen print: Order ${order.id} was sent from this POS, skipping`);
+        return;
+      }
+
+      console.log(`Kitchen print: Order ${order.id} sent from tablet, printing...`);
+
+      try {
+        // Get printers and categories from API
+        const [printers, categories, products] = await Promise.all([
+          printersApi.getAll(),
+          categoriesApi.getAll(),
+          productsApi.getAll(),
+        ]);
+        
+        const kitchenPrinters = printers.filter(
+          (p: any) => (p.type === 'kitchen' || p.type === 'bar') && p.isActive && p.ipAddress
+        );
+
+        if (kitchenPrinters.length === 0) {
+          console.log('Kitchen print: No kitchen/bar printers configured');
+          return;
+        }
+
+        // Build category -> printer map
+        const categoryPrinterMap = new Map<string, string>();
+        categories.forEach((cat: any) => {
+          if (cat.printerId) {
+            categoryPrinterMap.set(cat.id, cat.printerId);
+          }
+        });
+
+        // Build product -> category map
+        const productCategoryMap = new Map<string, string>();
+        products.forEach((prod: any) => {
+          productCategoryMap.set(prod.id, prod.categoryId);
+        });
+
+        // Find default kitchen printer (fallback)
+        const defaultKitchenPrinter = kitchenPrinters.find((p: any) => p.type === 'kitchen');
+
+        // Get table name
+        let tableName = 'Bilinmiyor';
+        try {
+          if (order.tableId) {
+            const table = await tablesApi.getOne(order.tableId);
+            tableName = table.name;
+          }
+        } catch (e) {
+          console.error('Failed to get table name:', e);
+        }
+
+        // Group items by printer
+        const printerItemsMap = new Map<string, any[]>();
+        
+        for (const item of order.items || []) {
+          const categoryId = productCategoryMap.get(item.productId);
+          let printerId = categoryId ? categoryPrinterMap.get(categoryId) : null;
+          
+          // Fallback to default kitchen printer if no category printer
+          if (!printerId && defaultKitchenPrinter) {
+            printerId = defaultKitchenPrinter.id;
+          }
+          
+          if (printerId) {
+            if (!printerItemsMap.has(printerId)) {
+              printerItemsMap.set(printerId, []);
+            }
+            printerItemsMap.get(printerId)!.push({
+              productName: item.productName,
+              quantity: item.quantity,
+              notes: item.notes,
+            });
+          }
+        }
+
+        // Print to each printer with its items
+        for (const [printerId, items] of printerItemsMap) {
+          const printer = kitchenPrinters.find((p: any) => p.id === printerId);
+          if (!printer || !printer.ipAddress) continue;
+
+          const orderData = {
+            orderNumber: order.orderNumber,
+            tableName,
+            items,
+          };
+
+          try {
+            await window.electronAPI!.printKitchenTicket({
+              order: orderData,
+              printerIp: printer.ipAddress,
+              printerPort: printer.port || 9100,
+            });
+            console.log(`Kitchen print: Sent ${items.length} items to ${printer.name} (${printer.ipAddress})`);
+          } catch (err) {
+            console.error(`Kitchen print: Failed to print to ${printer.name}:`, err);
+          }
+        }
+
+        // Invalidate orders to refresh UI
+        queryClientHook.invalidateQueries({ queryKey: ['orders'] });
+      } catch (error) {
+        console.error('Kitchen print error:', error);
+      }
+    };
+
+    // Listen for order:new event (sent from API when order is sent to kitchen)
+    socket.on('order:new', (data: { order: any }) => {
+      handleKitchenPrint(data.order);
+    });
+
+    // Listen for order:updated event (fallback)
+    socket.on('order:updated', (data: { order: any }) => {
+      handleKitchenPrint(data.order);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [showSplash, queryClientHook]);
 
   const handleCancelAction = useCallback(() => {
     setActionMode(null);
@@ -70,11 +225,19 @@ function AppRoutes() {
           return;
         }
 
-        // Use first selected table as target
-        console.log('Merging orders:', orderIds, 'to table:', selectedTables[0]);
+        // İlk seçilen masa hedef masa olarak kullanılır
+        // Kullanıcıya bilgi ver
+        const targetTableId = selectedTables[0];
+        const confirmMessage = `Tüm siparişler "${targetTableId}" masasına birleştirilecek. Devam etmek istiyor musunuz?`;
+        
+        if (!confirm(confirmMessage)) {
+          return;
+        }
+
+        console.log('Merging orders:', orderIds, 'to table:', targetTableId);
         await ordersApi.merge({
           orderIds,
-          targetTableId: selectedTables[0],
+          targetTableId,
         });
 
         // Invalidate queries to refresh data
@@ -85,10 +248,12 @@ function AppRoutes() {
         handleCancelAction();
       } else if (actionMode === 'transfer' && selectedTables.length === 2) {
         // Find order for source table
-        const sourceOrder = orders.find(o => o.tableId === selectedTables[0] && ['open', 'sent'].includes(o.status));
+        const sourceTableId = selectedTables[0];
+        const targetTableId = selectedTables[1];
+        const sourceOrder = orders.find(o => o.tableId === sourceTableId && ['open', 'sent'].includes(o.status));
         
-        console.log('Source table:', selectedTables[0]);
-        console.log('Target table:', selectedTables[1]);
+        console.log('Source table:', sourceTableId);
+        console.log('Target table:', targetTableId);
         console.log('Source order:', sourceOrder?.id || 'NOT FOUND');
         
         if (!sourceOrder) {
@@ -96,17 +261,24 @@ function AppRoutes() {
           return;
         }
 
-        console.log('Transferring order:', sourceOrder.id, 'to table:', selectedTables[1]);
-        await ordersApi.transfer(sourceOrder.id, {
-          targetTableId: selectedTables[1],
-        });
-
-        // Invalidate queries to refresh data
-        queryClientHook.invalidateQueries({ queryKey: ['orders'] });
-        queryClientHook.invalidateQueries({ queryKey: ['tables'] });
+        console.log('Transferring order:', sourceOrder.id, 'to table:', targetTableId);
         
-        alert('Masa başarıyla taşındı!');
-        handleCancelAction();
+        try {
+          await ordersApi.transfer(sourceOrder.id, {
+            targetTableId,
+          });
+
+          // Invalidate queries to refresh data
+          queryClientHook.invalidateQueries({ queryKey: ['orders'] });
+          queryClientHook.invalidateQueries({ queryKey: ['tables'] });
+          
+          alert('Masa başarıyla taşındı!');
+          handleCancelAction();
+        } catch (transferError) {
+          console.error('Transfer failed:', transferError);
+          const errorMsg = transferError instanceof Error ? transferError.message : 'Bilinmeyen hata';
+          alert(`Masa taşıma başarısız: ${errorMsg}`);
+        }
       }
     } catch (error) {
       console.error('Action failed:', error);

@@ -4,15 +4,28 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Store } from './store.entity';
 
 @Entity('zones')
 export class Zone {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ name: 'store_id', nullable: true })
+  storeId: string | null;
+
+  @ManyToOne(() => Store, store => store.zones, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
+
   @Column({ length: 50 })
   name: string;
+
+  @Column({ length: 10, nullable: true })
+  prefix: string;
 
   @Column({ length: 50, nullable: true })
   icon: string;

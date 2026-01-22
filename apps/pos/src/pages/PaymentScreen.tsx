@@ -1,11 +1,28 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Check, Banknote, CreditCard, Smartphone, Users, Scissors, X, Loader2 } from 'lucide-react';
+import { ArrowLeft, Check, Banknote, CreditCard, Smartphone, Users, Scissors, X, Loader2, ShieldAlert } from 'lucide-react';
 import { ordersApi, paymentsApi } from '@/services/api';
 import type { Order } from '@/services/api';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+// Get current user from localStorage
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) return JSON.parse(userStr);
+  } catch {}
+  return null;
+};
+
+// Check if user can take payments
+const canTakePayment = () => {
+  const user = getCurrentUser();
+  if (!user) return false;
+  // Waiter cannot take payments
+  return user.role !== 'waiter';
+};
 
 type PaymentStep = 'method' | 'cash' | 'card-processing' | 'success' | 'split-type' | 'split-people' | 'split-amount' | 'split-items';
 
@@ -36,6 +53,7 @@ export default function PaymentScreen() {
   // OKC state
   const [okcProcessing, setOkcProcessing] = useState(false);
   const [okcResult, setOkcResult] = useState<{ success: boolean; message: string; cardType?: string } | null>(null);
+  const [okcPaymentType, setOkcPaymentType] = useState<'cash' | 'card'>('card');
 
   const { data: fetchedOrder } = useQuery({
     queryKey: ['order', orderId],
@@ -128,6 +146,7 @@ export default function PaymentScreen() {
       setPaymentStep('card-processing');
       setOkcProcessing(true);
       setOkcResult(null);
+      setOkcPaymentType('card');
       
       try {
         const response = await fetch(`${API_URL}/api/okc/sale`, {
@@ -137,6 +156,7 @@ export default function PaymentScreen() {
             amount: Math.round(currentPaymentAmount * 100), // Kuruş cinsinden
             orderId: order?.id || '',
             description: `Sipariş #${order?.orderNumber}`,
+            paymentType: 'card', // Kart olduğunu belirt
           }),
         });
         
@@ -169,10 +189,50 @@ export default function PaymentScreen() {
     }
   };
 
-  const handleCashConfirm = () => {
+  const handleCashConfirm = async () => {
     const received = parseFloat(cashReceived) || 0;
-    if (received >= currentPaymentAmount) {
-      handlePayment('cash');
+    if (received < currentPaymentAmount || okcProcessing) return;
+    
+    // Nakit ödeme de ÖKC'ye gidecek (mali fiş için)
+    setPaymentStep('card-processing'); // Aynı processing ekranını kullan
+    setOkcProcessing(true);
+    setOkcResult(null);
+    setOkcPaymentType('cash');
+    
+    try {
+      const response = await fetch(`${API_URL}/api/okc/sale`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: Math.round(currentPaymentAmount * 100), // Kuruş cinsinden
+          orderId: order?.id || '',
+          description: `Sipariş #${order?.orderNumber}`,
+          paymentType: 'cash', // Nakit olduğunu belirt
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setOkcResult({
+          success: true,
+          message: 'Nakit ödeme kaydedildi',
+        });
+        // Ödemeyi kaydet
+        handlePayment('cash');
+      } else {
+        setOkcResult({
+          success: false,
+          message: result.errorMessage || 'ÖKC kaydı başarısız',
+        });
+        setOkcProcessing(false);
+      }
+    } catch (error) {
+      setOkcResult({
+        success: false,
+        message: 'ÖKC bağlantı hatası',
+      });
+      setOkcProcessing(false);
     }
   };
 
@@ -265,6 +325,44 @@ export default function PaymentScreen() {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: 'rgba(255,255,255,0.5)' }}>
         Yükleniyor...
+      </div>
+    );
+  }
+
+  // Check if user has payment permission
+  if (!canTakePayment()) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#000', gap: '24px' }}>
+        <div style={{
+          width: '80px',
+          height: '80px',
+          borderRadius: '50%',
+          background: 'rgba(255,69,58,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <ShieldAlert size={40} style={{ color: '#FF453A' }} />
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 600, marginBottom: '8px' }}>Yetkisiz Erişim</h2>
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>Ödeme alma yetkiniz bulunmamaktadır.</p>
+        </div>
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            padding: '14px 32px',
+            borderRadius: '12px',
+            border: 'none',
+            background: '#0A84FF',
+            color: '#fff',
+            fontSize: '15px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Geri Dön
+        </button>
       </div>
     );
   }
@@ -725,17 +823,17 @@ export default function PaymentScreen() {
               <div style={{ marginBottom: '32px' }}>
                 <div style={{ 
                   width: '100px', height: '100px', borderRadius: '24px',
-                  background: 'rgba(10, 132, 255, 0.15)', 
+                  background: okcPaymentType === 'cash' ? 'rgba(48, 209, 88, 0.15)' : 'rgba(10, 132, 255, 0.15)', 
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   margin: '0 auto 24px',
                 }}>
-                  <Loader2 size={48} style={{ color: '#0A84FF', animation: 'spin 1s linear infinite' }} />
+                  <Loader2 size={48} style={{ color: okcPaymentType === 'cash' ? '#30D158' : '#0A84FF', animation: 'spin 1s linear infinite' }} />
                 </div>
                 <div style={{ color: '#fff', fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>
-                  Kart Bekleniyor
+                  {okcPaymentType === 'cash' ? 'ÖKC İşleniyor' : 'Kart Bekleniyor'}
                 </div>
                 <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
-                  Lütfen kartınızı ÖKC cihazına okutun
+                  {okcPaymentType === 'cash' ? 'Nakit ödeme ÖKC\'ye kaydediliyor...' : 'Lütfen kartınızı ÖKC cihazına okutun'}
                 </div>
               </div>
             )}

@@ -24,6 +24,7 @@ describe('E2E: Printer Integration (Yazıcı Entegrasyonu)', () => {
   // Mock printer for testing without real hardware
   const mockPrinter: Printer = {
     id: 'test-printer-id',
+    storeId: 'test-store-id',
     name: 'Test Mutfak Yazıcısı',
     type: 'kitchen',
     connectionType: 'tcp',
@@ -31,6 +32,7 @@ describe('E2E: Printer Integration (Yazıcı Entegrasyonu)', () => {
     port: parseInt(process.env.PRINTER_TEST_PORT || '9100'),
     isActive: true,
     createdAt: new Date(),
+    store: null as any,
   };
 
   beforeAll(async () => {

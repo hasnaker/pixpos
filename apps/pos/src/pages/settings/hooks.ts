@@ -1,28 +1,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersApi, type User as ApiUser, type CreateUserDto, type UpdateUserDto } from '@/services/api';
-import { STORAGE_KEYS, DEFAULT_BUSINESS, DEFAULT_RECEIPT, DEFAULT_DEVICES } from './types';
-import type { BusinessSettings, ReceiptSettings, DeviceSettings, User } from './types';
+import { usersApi, settingsApi, type User as ApiUser, type CreateUserDto, type UpdateUserDto, type BusinessSettings, type ReceiptSettings, type DeviceSettings } from '@/services/api';
 
-// Generic localStorage loader
-export const loadFromStorage = <T,>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
+// Re-export types from API
+export type { BusinessSettings, ReceiptSettings, DeviceSettings };
 
-// Generic localStorage saver
-export const saveToStorage = <T,>(key: string, value: T): boolean => {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
-};
+// User type for local use
+export interface User {
+  id: string;
+  name: string;
+  role: 'admin' | 'manager' | 'cashier' | 'waiter';
+  pin: string;
+  active: boolean;
+}
 
 // Convert API user to local user format
 const apiUserToLocal = (apiUser: ApiUser): User => ({
@@ -33,20 +23,107 @@ const apiUserToLocal = (apiUser: ApiUser): User => ({
   active: apiUser.isActive,
 });
 
-// Custom hook for settings with auto-save
+// Custom hook for settings - ALL FROM API
 export function useSettingsStorage() {
   const queryClient = useQueryClient();
-  
-  const [business, setBusiness] = useState<BusinessSettings>(() => 
-    loadFromStorage(STORAGE_KEYS.BUSINESS, DEFAULT_BUSINESS)
-  );
-  const [receipt, setReceipt] = useState<ReceiptSettings>(() => 
-    loadFromStorage(STORAGE_KEYS.RECEIPT, DEFAULT_RECEIPT)
-  );
-  const [devices, setDevices] = useState<DeviceSettings>(() => 
-    loadFromStorage(STORAGE_KEYS.DEVICES, DEFAULT_DEVICES)
-  );
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+
+  // Fetch all settings from API
+  const { data: allSettings, isLoading: settingsLoading, error: settingsError } = useQuery({
+    queryKey: ['settings'],
+    queryFn: settingsApi.getAll,
+    retry: 3,
+    retryDelay: 1000,
+  });
+
+  // Local state initialized from API
+  const [business, setBusinessLocal] = useState<BusinessSettings>({
+    storeName: '',
+    logoUrl: '',
+    address: '',
+    phone: '',
+    email: '',
+    taxNumber: '',
+    displayVideos: [],
+  });
+  const [receipt, setReceiptLocal] = useState<ReceiptSettings>({
+    showLogo: true,
+    showAddress: true,
+    showPhone: true,
+    showTaxNumber: true,
+    footerText: '',
+    paperWidth: '80mm',
+  });
+  const [devices, setDevicesLocal] = useState<DeviceSettings>({
+    kitchen: true,
+    waiter: true,
+    qrMenu: false,
+  });
+
+  // Update local state when API data arrives
+  useEffect(() => {
+    if (allSettings) {
+      setBusinessLocal(allSettings.business);
+      setReceiptLocal(allSettings.receipt);
+      setDevicesLocal(allSettings.devices);
+    }
+  }, [allSettings]);
+
+  // Mutations for updating settings
+  const updateBusinessMutation = useMutation({
+    mutationFn: settingsApi.updateBusiness,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      setSaveStatus('saved');
+    },
+    onError: () => setSaveStatus('error'),
+  });
+
+  const updateReceiptMutation = useMutation({
+    mutationFn: settingsApi.updateReceipt,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      setSaveStatus('saved');
+    },
+    onError: () => setSaveStatus('error'),
+  });
+
+  const updateDevicesMutation = useMutation({
+    mutationFn: settingsApi.updateDevices,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] });
+      setSaveStatus('saved');
+    },
+    onError: () => setSaveStatus('error'),
+  });
+
+  // Setters that also update API
+  const setBusiness = useCallback((value: BusinessSettings | ((prev: BusinessSettings) => BusinessSettings)) => {
+    setBusinessLocal(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      setSaveStatus('saving');
+      updateBusinessMutation.mutate(newValue);
+      return newValue;
+    });
+  }, [updateBusinessMutation]);
+
+  const setReceipt = useCallback((value: ReceiptSettings | ((prev: ReceiptSettings) => ReceiptSettings)) => {
+    setReceiptLocal(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      setSaveStatus('saving');
+      updateReceiptMutation.mutate(newValue);
+      return newValue;
+    });
+  }, [updateReceiptMutation]);
+
+  const setDevices = useCallback((value: DeviceSettings | ((prev: DeviceSettings) => DeviceSettings)) => {
+    setDevicesLocal(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      setSaveStatus('saving');
+      updateDevicesMutation.mutate(newValue);
+      return newValue;
+    });
+  }, [updateDevicesMutation]);
 
   // Fetch users from API
   const { data: apiUsers = [], isLoading: usersLoading, error: usersError } = useQuery({
@@ -103,22 +180,6 @@ export function useSettingsStorage() {
     },
   });
 
-  // Auto-save effect for local settings
-  useEffect(() => {
-    setSaveStatus('saving');
-    const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEYS.BUSINESS, JSON.stringify(business));
-        localStorage.setItem(STORAGE_KEYS.RECEIPT, JSON.stringify(receipt));
-        localStorage.setItem(STORAGE_KEYS.DEVICES, JSON.stringify(devices));
-        setSaveStatus('saved');
-      } catch {
-        setSaveStatus('error');
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [business, receipt, devices]);
-
   // User management functions
   const addUser = useCallback((user: Omit<User, 'id'>) => {
     createUserMutation.mutate({
@@ -163,8 +224,8 @@ export function useSettingsStorage() {
     devices,
     setDevices,
     users,
-    usersLoading,
-    usersError,
+    usersLoading: usersLoading || settingsLoading,
+    usersError: usersError || settingsError,
     saveStatus,
     addUser,
     updateUser,

@@ -1,17 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle, AlertTriangle, Search } from 'lucide-react';
 
-// Electron API type
-declare global {
-  interface Window {
-    electronAPI?: {
-      okcTestConnection: (ip: string, port: number) => Promise<{ success: boolean; responseTime?: number; error?: string }>;
-      okcScanPorts: (ip: string) => Promise<number[]>;
-      isElectron: boolean;
-    };
-  }
-}
-
 interface OkcConfig {
   ip: string;
   port: number;
@@ -26,8 +15,16 @@ interface ConnectionStatus {
   lastChecked?: Date;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 const isElectron = typeof window !== 'undefined' && window.electronAPI?.isElectron;
+
+// Production API URL for Electron
+const getApiUrl = () => {
+  if (isElectron) {
+    return 'https://api.pixpos.cloud/api';
+  }
+  return API_URL;
+};
 
 export function OkcTab() {
   const [config, setConfig] = useState<OkcConfig>({
@@ -50,7 +47,7 @@ export function OkcTab() {
 
   const fetchConfig = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/okc/config`);
+      const res = await fetch(`${getApiUrl()}/okc/config`);
       if (res.ok) {
         const data = await res.json();
         setConfig(data);
@@ -63,7 +60,7 @@ export function OkcTab() {
   const saveConfig = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/okc/config`, {
+      const res = await fetch(`${getApiUrl()}/okc/config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -138,7 +135,7 @@ export function OkcTab() {
         });
       } else {
         // Fallback to cloud API (won't work for local network)
-        const res = await fetch(`${API_URL}/api/okc/test`, { method: 'POST' });
+        const res = await fetch(`${getApiUrl()}/okc/test`, { method: 'POST' });
         const data = await res.json();
         setStatus({
           connected: data.success,

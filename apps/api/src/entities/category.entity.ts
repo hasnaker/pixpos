@@ -11,11 +11,19 @@ import {
 import { Product } from './product.entity';
 import { Printer } from './printer.entity';
 import { Menu } from './menu.entity';
+import { Store } from './store.entity';
 
 @Entity('categories')
 export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', nullable: true })
+  storeId: string | null;
+
+  @ManyToOne(() => Store, store => store.categories, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @Column({ name: 'menu_id', type: 'uuid', nullable: true })
   menuId: string | null;

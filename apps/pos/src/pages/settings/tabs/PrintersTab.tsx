@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { Plus, Trash2, Wifi, ChefHat, Receipt, Printer as PrinterIcon, Search, Loader2, Check, X, RefreshCw, Wine } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, Wifi, ChefHat, Receipt, Printer as PrinterIcon, Search, Loader2, Check, X, RefreshCw, Wine, Tag } from 'lucide-react';
 import { cardStyle } from '../styles';
 
 // Check if running in Electron - more robust detection
 const isElectron = typeof window !== 'undefined' && 
   typeof (window as any).electronAPI !== 'undefined' && 
   (window as any).electronAPI?.isElectron === true;
+
+const API_URL = isElectron 
+  ? 'https://api.pixpos.cloud/api'
+  : (import.meta.env.VITE_API_URL || '/api');
 
 interface Printer {
   id: string;
@@ -14,6 +18,13 @@ interface Printer {
   port?: number;
   type: 'kitchen' | 'bar' | 'receipt';
   isActive: boolean;
+  categoryIds?: string[]; // Assigned categories
+}
+
+interface Category {
+  id: string;
+  name: string;
+  printerId?: string | null;
 }
 
 interface DiscoveredPrinter {
@@ -46,6 +57,104 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
   const [scanError, setScanError] = useState<string | null>(null);
   const [selectedPrinterForAdd, setSelectedPrinterForAdd] = useState<DiscoveredPrinter | null>(null);
   const [customName, setCustomName] = useState('');
+  const [testingDiscovered, setTestingDiscovered] = useState<string | null>(null);
+  const [discoveredTestResult, setDiscoveredTestResult] = useState<{ ip: string; success: boolean } | null>(null);
+  
+  // Category assignment
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [editingPrinterId, setEditingPrinterId] = useState<string | null>(null);
+  const [savingCategories, setSavingCategories] = useState(false);
+
+  // Load categories
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
+  const loadCategories = async () => {
+    try {
+      const authToken = localStorage.getItem('posToken');
+      const storeId = localStorage.getItem('storeId');
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (storeId) headers['X-Store-ID'] = storeId;
+      
+      const response = await fetch(`${API_URL}/categories`, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error('Kategori yükleme hatası:', error);
+    }
+  };
+
+  // Get categories assigned to a printer
+  const getCategoriesForPrinter = (printerId: string) => {
+    return categories.filter(c => c.printerId === printerId);
+  };
+
+  // Start editing categories for a printer
+  const startEditingCategories = (printerId: string) => {
+    const assignedCategories = categories.filter(c => c.printerId === printerId).map(c => c.id);
+    setSelectedCategories(assignedCategories);
+    setEditingPrinterId(printerId);
+  };
+
+  // Save category assignments
+  const saveCategoryAssignments = async (printerId: string) => {
+    setSavingCategories(true);
+    try {
+      const authToken = localStorage.getItem('posToken');
+      const storeId = localStorage.getItem('storeId');
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (storeId) headers['X-Store-ID'] = storeId;
+
+      // Update each category
+      for (const category of categories) {
+        const shouldBeAssigned = selectedCategories.includes(category.id);
+        const isCurrentlyAssigned = category.printerId === printerId;
+        
+        if (shouldBeAssigned && !isCurrentlyAssigned) {
+          // Assign to this printer
+          await fetch(`${API_URL}/categories/${category.id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ printerId }),
+          });
+        } else if (!shouldBeAssigned && isCurrentlyAssigned) {
+          // Remove from this printer
+          await fetch(`${API_URL}/categories/${category.id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ printerId: null }),
+          });
+        }
+      }
+
+      // Reload categories
+      await loadCategories();
+      setEditingPrinterId(null);
+      setSelectedCategories([]);
+    } catch (error) {
+      console.error('Kategori atama hatası:', error);
+      alert('Kategori ataması başarısız');
+    } finally {
+      setSavingCategories(false);
+    }
+  };
+
+  // Toggle category selection
+  const toggleCategory = (categoryId: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(categoryId) 
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
 
   // Ağda yazıcı tara
   const scanNetwork = async () => {
@@ -88,27 +197,80 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
     }
   };
 
+  // Bulunan yazıcıyı test et (eklemeden önce)
+  const testDiscoveredPrinter = async (printer: DiscoveredPrinter) => {
+    setTestingDiscovered(printer.ip);
+    setDiscoveredTestResult(null);
+    
+    try {
+      let success = false;
+      
+      if (isElectron) {
+        // Electron: Direct local test print
+        const result = await (window as any).electronAPI.testPrinter(printer.ip, printer.port);
+        success = result.success;
+      } else {
+        // Web'de test yapılamaz
+        alert('Test yazdırma sadece EXE uygulamasında çalışır');
+        setTestingDiscovered(null);
+        return;
+      }
+      
+      setDiscoveredTestResult({ ip: printer.ip, success });
+    } catch {
+      setDiscoveredTestResult({ ip: printer.ip, success: false });
+    } finally {
+      setTestingDiscovered(null);
+      setTimeout(() => setDiscoveredTestResult(null), 5000);
+    }
+  };
+
   // Bulunan yazıcıyı ekle
   const addDiscoveredPrinter = async (discovered: DiscoveredPrinter, type: 'kitchen' | 'bar' | 'receipt', name?: string) => {
     const typeInfo = PRINTER_TYPES[type];
     const printerName = name || `${typeInfo.label} (${discovered.ip})`;
+    
+    // Get store ID from localStorage
+    const storeId = localStorage.getItem('storeId');
     
     const printerData = {
       name: printerName,
       ipAddress: discovered.ip,
       port: discovered.port,
       type,
+      connectionType: 'tcp',
       isActive: true,
+      storeId: storeId || undefined,
     };
     
     // API'ye direkt ekle
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || '/api';
-      await fetch(`${apiUrl}/printers`, {
+      // Electron için production API, web için environment variable veya relative path
+      const apiUrl = isElectron 
+        ? 'https://api.pixpos.cloud/api'
+        : (import.meta.env.VITE_API_URL || '/api');
+      
+      // Get auth token and store ID from localStorage
+      const authToken = localStorage.getItem('posToken');
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+      if (storeId) headers['X-Store-ID'] = storeId;
+      
+      console.log('Adding printer:', printerData);
+      
+      const response = await fetch(`${apiUrl}/printers`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(printerData),
       });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Yazıcı eklenemedi: ${error.message || 'Bilinmeyen hata'}`);
+        return;
+      }
+      
       // Listeyi yenile - parent component'in refetch yapması için
       if (onAddPrinter) onAddPrinter(printerData);
       // Eklenen yazıcıyı listeden kaldır
@@ -116,9 +278,11 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
       setSelectedPrinterForAdd(null);
       setCustomName('');
       // Sayfayı yenile
+      alert('Yazıcı eklendi!');
       window.location.reload();
     } catch (error) {
       console.error('Yazıcı ekleme hatası:', error);
+      alert('Yazıcı eklenirken hata oluştu');
     }
   };
 
@@ -268,18 +432,48 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
                           <Check size={14} /> Eklendi
                         </span>
                       ) : (
-                        <button 
-                          onClick={() => setSelectedPrinterForAdd(isSelected ? null : printer)}
-                          style={{
-                            padding: '6px 12px', borderRadius: '6px', 
-                            background: isSelected ? 'rgba(255,69,58,0.15)' : 'rgba(48,209,88,0.15)',
-                            border: 'none', 
-                            color: isSelected ? '#FF453A' : '#30D158', 
-                            fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                          }}
-                        >
-                          {isSelected ? 'İptal' : 'Ekle'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {/* Test Button */}
+                          <button 
+                            onClick={() => testDiscoveredPrinter(printer)}
+                            disabled={testingDiscovered === printer.ip}
+                            style={{
+                              padding: '6px 12px', borderRadius: '6px', 
+                              background: discoveredTestResult?.ip === printer.ip 
+                                ? (discoveredTestResult.success ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)')
+                                : 'rgba(10,132,255,0.15)',
+                              border: 'none', 
+                              color: discoveredTestResult?.ip === printer.ip 
+                                ? (discoveredTestResult.success ? '#30D158' : '#FF453A')
+                                : '#0A84FF', 
+                              fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', gap: '4px',
+                            }}
+                          >
+                            {testingDiscovered === printer.ip ? (
+                              <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                            ) : discoveredTestResult?.ip === printer.ip ? (
+                              discoveredTestResult.success ? <Check size={12} /> : <X size={12} />
+                            ) : (
+                              <PrinterIcon size={12} />
+                            )}
+                            {testingDiscovered === printer.ip ? 'Test...' : 
+                             discoveredTestResult?.ip === printer.ip ? (discoveredTestResult.success ? 'OK!' : 'Hata') : 'Test'}
+                          </button>
+                          {/* Add Button */}
+                          <button 
+                            onClick={() => setSelectedPrinterForAdd(isSelected ? null : printer)}
+                            style={{
+                              padding: '6px 12px', borderRadius: '6px', 
+                              background: isSelected ? 'rgba(255,69,58,0.15)' : 'rgba(48,209,88,0.15)',
+                              border: 'none', 
+                              color: isSelected ? '#FF453A' : '#30D158', 
+                              fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                            }}
+                          >
+                            {isSelected ? 'İptal' : 'Ekle'}
+                          </button>
+                        </div>
                       )}
                     </div>
                     
@@ -360,70 +554,166 @@ export default function PrintersTab({ printers, onAdd, onDelete, onTest, onAddPr
           {printers.map((printer) => {
             const typeInfo = PRINTER_TYPES[printer.type as keyof typeof PRINTER_TYPES] || PRINTER_TYPES.receipt;
             const Icon = typeInfo.icon;
+            const assignedCategories = getCategoriesForPrinter(printer.id);
+            const isEditing = editingPrinterId === printer.id;
             
             return (
-              <div key={printer.id} style={{ ...cardStyle, display: 'flex', alignItems: 'center', gap: '16px', padding: '16px 20px' }}>
-                {/* Icon */}
-                <div style={{
-                  width: '48px', height: '48px', borderRadius: '12px',
-                  background: typeInfo.bgColor,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icon size={24} style={{ color: typeInfo.color }} />
+              <div key={printer.id} style={{ ...cardStyle, padding: '16px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  {/* Icon */}
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '12px',
+                    background: typeInfo.bgColor,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Icon size={24} style={{ color: typeInfo.color }} />
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{printer.name}</p>
+                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
+                      {printer.ipAddress}:{printer.port} • {typeInfo.label}
+                    </p>
+                    {/* Show assigned categories */}
+                    {printer.type !== 'receipt' && assignedCategories.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                        {assignedCategories.map(cat => (
+                          <span key={cat.id} style={{
+                            fontSize: '10px', padding: '2px 6px', borderRadius: '4px',
+                            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)',
+                          }}>
+                            {cat.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
+                    borderRadius: '20px', 
+                    background: printer.isActive ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
+                  }}>
+                    <Wifi size={12} style={{ color: printer.isActive ? '#30D158' : '#FF453A' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: printer.isActive ? '#30D158' : '#FF453A' }}>
+                      {printer.isActive ? 'Aktif' : 'Pasif'}
+                    </span>
+                  </div>
+
+                  {/* Category Assignment Button (only for kitchen/bar) */}
+                  {printer.type !== 'receipt' && (
+                    <button 
+                      onClick={() => isEditing ? setEditingPrinterId(null) : startEditingCategories(printer.id)}
+                      style={{
+                        padding: '8px 12px', borderRadius: '8px', 
+                        background: isEditing ? 'rgba(10,132,255,0.2)' : 'rgba(255,255,255,0.05)',
+                        border: isEditing ? '1px solid rgba(10,132,255,0.3)' : 'none',
+                        color: isEditing ? '#0A84FF' : '#fff', 
+                        fontSize: '12px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                      }}
+                    >
+                      <Tag size={14} />
+                      Kategoriler
+                    </button>
+                  )}
+
+                  {/* Test Button */}
+                  <button 
+                    onClick={() => handleTest(printer.id)} 
+                    disabled={testingPrinter === printer.id}
+                    style={{
+                      padding: '8px 16px', borderRadius: '8px', 
+                      background: testResult?.id === printer.id 
+                        ? (testResult.success ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)')
+                        : 'rgba(255,255,255,0.05)',
+                      border: 'none', 
+                      color: testResult?.id === printer.id 
+                        ? (testResult.success ? '#30D158' : '#FF453A')
+                        : '#fff', 
+                      fontSize: '13px', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                    }}
+                  >
+                    {testingPrinter === printer.id ? (
+                      <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                    ) : testResult?.id === printer.id ? (
+                      testResult.success ? <Check size={14} /> : <X size={14} />
+                    ) : null}
+                    {testingPrinter === printer.id ? 'Test...' : testResult?.id === printer.id ? (testResult.success ? 'Başarılı' : 'Hata') : 'Test'}
+                  </button>
+
+                  {/* Delete Button */}
+                  <button onClick={() => onDelete(printer.id)} style={{
+                    padding: '8px', borderRadius: '8px', background: 'rgba(255,69,58,0.1)',
+                    border: 'none', color: '#FF453A', cursor: 'pointer',
+                  }}>
+                    <Trash2 size={16} />
+                  </button>
                 </div>
 
-                {/* Info */}
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: '15px', fontWeight: 600, color: '#fff' }}>{printer.name}</p>
-                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>
-                    {printer.ipAddress}:{printer.port} • {typeInfo.label}
-                  </p>
-                </div>
-
-                {/* Status */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px',
-                  borderRadius: '20px', 
-                  background: printer.isActive ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)',
-                }}>
-                  <Wifi size={12} style={{ color: printer.isActive ? '#30D158' : '#FF453A' }} />
-                  <span style={{ fontSize: '12px', fontWeight: 500, color: printer.isActive ? '#30D158' : '#FF453A' }}>
-                    {printer.isActive ? 'Aktif' : 'Pasif'}
-                  </span>
-                </div>
-
-                {/* Test Button */}
-                <button 
-                  onClick={() => handleTest(printer.id)} 
-                  disabled={testingPrinter === printer.id}
-                  style={{
-                    padding: '8px 16px', borderRadius: '8px', 
-                    background: testResult?.id === printer.id 
-                      ? (testResult.success ? 'rgba(48,209,88,0.15)' : 'rgba(255,69,58,0.15)')
-                      : 'rgba(255,255,255,0.05)',
-                    border: 'none', 
-                    color: testResult?.id === printer.id 
-                      ? (testResult.success ? '#30D158' : '#FF453A')
-                      : '#fff', 
-                    fontSize: '13px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                  }}
-                >
-                  {testingPrinter === printer.id ? (
-                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  ) : testResult?.id === printer.id ? (
-                    testResult.success ? <Check size={14} /> : <X size={14} />
-                  ) : null}
-                  {testingPrinter === printer.id ? 'Test...' : testResult?.id === printer.id ? (testResult.success ? 'Başarılı' : 'Hata') : 'Test'}
-                </button>
-
-                {/* Delete Button */}
-                <button onClick={() => onDelete(printer.id)} style={{
-                  padding: '8px', borderRadius: '8px', background: 'rgba(255,69,58,0.1)',
-                  border: 'none', color: '#FF453A', cursor: 'pointer',
-                }}>
-                  <Trash2 size={16} />
-                </button>
+                {/* Category Assignment Panel */}
+                {isEditing && (
+                  <div style={{
+                    marginTop: '16px', padding: '16px', borderRadius: '12px',
+                    background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '12px' }}>
+                      Bu yazıcıya gidecek kategorileri seçin:
+                    </p>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                      {categories.map(cat => {
+                        const isSelected = selectedCategories.includes(cat.id);
+                        const isAssignedToOther = cat.printerId && cat.printerId !== printer.id;
+                        
+                        return (
+                          <button
+                            key={cat.id}
+                            onClick={() => !isAssignedToOther && toggleCategory(cat.id)}
+                            disabled={!!isAssignedToOther}
+                            style={{
+                              padding: '8px 14px', borderRadius: '8px',
+                              background: isSelected ? typeInfo.bgColor : 'rgba(255,255,255,0.06)',
+                              border: isSelected ? `1px solid ${typeInfo.color}` : '1px solid rgba(255,255,255,0.1)',
+                              color: isSelected ? typeInfo.color : (isAssignedToOther ? 'rgba(255,255,255,0.3)' : '#fff'),
+                              fontSize: '13px', fontWeight: 500, cursor: isAssignedToOther ? 'not-allowed' : 'pointer',
+                              opacity: isAssignedToOther ? 0.5 : 1,
+                            }}
+                          >
+                            {cat.name}
+                            {isAssignedToOther && ' (başka yazıcıda)'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => setEditingPrinterId(null)}
+                        style={{
+                          padding: '8px 16px', borderRadius: '8px',
+                          background: 'rgba(255,255,255,0.06)', border: 'none',
+                          color: 'rgba(255,255,255,0.6)', fontSize: '13px', cursor: 'pointer',
+                        }}
+                      >
+                        İptal
+                      </button>
+                      <button
+                        onClick={() => saveCategoryAssignments(printer.id)}
+                        disabled={savingCategories}
+                        style={{
+                          padding: '8px 16px', borderRadius: '8px',
+                          background: typeInfo.color, border: 'none',
+                          color: '#000', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                          opacity: savingCategories ? 0.7 : 1,
+                        }}
+                      >
+                        {savingCategories ? 'Kaydediliyor...' : 'Kaydet'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

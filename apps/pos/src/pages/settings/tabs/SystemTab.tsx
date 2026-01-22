@@ -7,8 +7,8 @@ interface SystemTabProps {
 
 export default function SystemTab({ onCloseAll }: SystemTabProps) {
   const systemInfo = [
-    { label: 'Versiyon', value: 'PIXPOS v1.0.0' },
-    { label: 'API', value: 'localhost:3001' },
+    { label: 'Versiyon', value: 'v1.0.0' },
+    { label: 'API', value: 'api.pixpos.cloud' },
     { label: 'Veritabanı', value: 'PostgreSQL 15' },
     { label: 'Lisans', value: 'Aktif - 365 gün kaldı' },
   ];

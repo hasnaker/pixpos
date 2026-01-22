@@ -6,13 +6,19 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Category } from './category.entity';
+import { Store } from './store.entity';
 
 @Entity('products')
+@Index(['storeId'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ name: 'store_id', type: 'uuid', nullable: true })
+  storeId: string | null;
 
   @Column({ name: 'category_id', type: 'uuid' })
   categoryId: string;
@@ -43,6 +49,11 @@ export class Product {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  // Relations
+  @ManyToOne(() => Store, (store) => store.products)
+  @JoinColumn({ name: 'store_id' })
+  store: Store;
 
   @ManyToOne(() => Category, (category) => category.products)
   @JoinColumn({ name: 'category_id' })

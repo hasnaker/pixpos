@@ -20,10 +20,41 @@ import {
   Building,
   Coffee,
   Sofa,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAutoLock, formatRemainingTime } from '@/hooks';
 import { useSettings } from '@/contexts';
 import { zonesApi } from '@/services/api';
+
+// Get current user from localStorage
+const getCurrentUser = () => {
+  try {
+    const userStr = localStorage.getItem('currentUser');
+    if (userStr) return JSON.parse(userStr);
+  } catch {}
+  return null;
+};
+
+// Check if user has permission
+const hasPermission = (permission: 'settings' | 'payment' | 'merge' | 'transfer' | 'split') => {
+  const user = getCurrentUser();
+  if (!user) return false;
+  
+  // Admin and manager have all permissions
+  if (user.role === 'admin' || user.role === 'manager') return true;
+  
+  // Cashier can do payments but not settings
+  if (user.role === 'cashier') {
+    return permission !== 'settings';
+  }
+  
+  // Waiter can only take orders - no settings, no payments, no table operations
+  if (user.role === 'waiter') {
+    return false;
+  }
+  
+  return false;
+};
 
 // Icon mapping
 const ICON_MAP: Record<string, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
@@ -70,6 +101,8 @@ export default function MainLayout({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showLockWarning, setShowLockWarning] = useState(false);
+  const [showUnauthorized, setShowUnauthorized] = useState(false);
+  const currentUser = getCurrentUser();
 
   // Fetch zones from API
   const { data: zones = [] } = useQuery({
@@ -151,10 +184,10 @@ export default function MainLayout({
           borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}>
           <img 
-            src={`${import.meta.env.BASE_URL}pixpos.svg`}
-            alt="PIXPOS" 
+            src={`${import.meta.env.BASE_URL}pixpos-logo.png`}
+            alt="" 
             style={{ 
-              height: '192px',
+              height: '48px',
               width: 'auto',
             }} 
           />
@@ -282,7 +315,14 @@ export default function MainLayout({
               Masa İşlemleri
             </div>
             <button
-              onClick={() => onActionModeChange(actionMode === 'merge' ? null : 'merge')}
+              onClick={() => {
+                if (hasPermission('merge')) {
+                  onActionModeChange(actionMode === 'merge' ? null : 'merge');
+                } else {
+                  setShowUnauthorized(true);
+                  setTimeout(() => setShowUnauthorized(false), 2000);
+                }
+              }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -293,7 +333,7 @@ export default function MainLayout({
                 border: 'none',
                 cursor: 'pointer',
                 background: actionMode === 'merge' ? 'rgba(10,132,255,0.15)' : 'transparent',
-                color: actionMode === 'merge' ? '#0A84FF' : 'rgba(255,255,255,0.6)',
+                color: actionMode === 'merge' ? '#0A84FF' : hasPermission('merge') ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
                 marginBottom: '2px',
               }}
             >
@@ -312,9 +352,19 @@ export default function MainLayout({
                   {selectedTables.length}
                 </span>
               )}
+              {!hasPermission('merge') && actionMode !== 'merge' && (
+                <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+              )}
             </button>
             <button
-              onClick={() => onActionModeChange(actionMode === 'transfer' ? null : 'transfer')}
+              onClick={() => {
+                if (hasPermission('transfer')) {
+                  onActionModeChange(actionMode === 'transfer' ? null : 'transfer');
+                } else {
+                  setShowUnauthorized(true);
+                  setTimeout(() => setShowUnauthorized(false), 2000);
+                }
+              }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -325,7 +375,7 @@ export default function MainLayout({
                 border: 'none',
                 cursor: 'pointer',
                 background: actionMode === 'transfer' ? 'rgba(255,159,10,0.15)' : 'transparent',
-                color: actionMode === 'transfer' ? '#FF9F0A' : 'rgba(255,255,255,0.6)',
+                color: actionMode === 'transfer' ? '#FF9F0A' : hasPermission('transfer') ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
                 marginBottom: '2px',
               }}
             >
@@ -344,9 +394,19 @@ export default function MainLayout({
                   {selectedTables.length}
                 </span>
               )}
+              {!hasPermission('transfer') && actionMode !== 'transfer' && (
+                <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+              )}
             </button>
             <button
-              onClick={() => onActionModeChange(actionMode === 'split' ? null : 'split')}
+              onClick={() => {
+                if (hasPermission('split')) {
+                  onActionModeChange(actionMode === 'split' ? null : 'split');
+                } else {
+                  setShowUnauthorized(true);
+                  setTimeout(() => setShowUnauthorized(false), 2000);
+                }
+              }}
               style={{
                 width: '100%',
                 display: 'flex',
@@ -357,12 +417,15 @@ export default function MainLayout({
                 border: 'none',
                 cursor: 'pointer',
                 background: actionMode === 'split' ? 'rgba(191,90,242,0.15)' : 'transparent',
-                color: actionMode === 'split' ? '#BF5AF2' : 'rgba(255,255,255,0.6)',
+                color: actionMode === 'split' ? '#BF5AF2' : hasPermission('split') ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
                 marginBottom: '2px',
               }}
             >
               <Split size={18} strokeWidth={1.5} />
               <span style={{ fontSize: '13px', fontWeight: 500 }}>Hesap Böl</span>
+              {!hasPermission('split') && actionMode !== 'split' && (
+                <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+              )}
             </button>
           </div>
         </div>
@@ -373,7 +436,14 @@ export default function MainLayout({
           borderTop: '1px solid rgba(255,255,255,0.06)',
         }}>
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => {
+              if (hasPermission('settings')) {
+                navigate('/settings');
+              } else {
+                setShowUnauthorized(true);
+                setTimeout(() => setShowUnauthorized(false), 2000);
+              }
+            }}
             style={{
               width: '100%',
               display: 'flex',
@@ -384,12 +454,15 @@ export default function MainLayout({
               border: 'none',
               cursor: 'pointer',
               background: location.pathname === '/settings' ? 'rgba(255,255,255,0.1)' : 'transparent',
-              color: 'rgba(255,255,255,0.6)',
+              color: hasPermission('settings') ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.25)',
               marginBottom: '4px',
             }}
           >
             <Settings size={18} strokeWidth={1.5} />
             <span style={{ fontSize: '13px', fontWeight: 500 }}>Ayarlar</span>
+            {!hasPermission('settings') && (
+              <Lock size={12} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+            )}
           </button>
           <button
             onClick={handleLogout}
@@ -706,7 +779,7 @@ export default function MainLayout({
           zIndex: 50,
         }}>
           <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)' }}>
-            PIXPOS v1.0.0
+            v1.0.0
           </span>
           <div style={{
             width: '3px',
@@ -752,6 +825,32 @@ export default function MainLayout({
             <Lock size={48} style={{ color: '#0A84FF' }} />
             <span style={{ fontSize: '18px', fontWeight: 500 }}>Ekran kilitleniyor...</span>
           </div>
+        </div>
+      )}
+
+      {/* Unauthorized Toast */}
+      {showUnauthorized && (
+        <div style={{
+          position: 'fixed',
+          top: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '14px 24px',
+          background: 'rgba(255,69,58,0.95)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          zIndex: 10000,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          animation: 'slideDown 0.3s ease',
+        }}>
+          <ShieldAlert size={20} style={{ color: '#fff' }} />
+          <span style={{ color: '#fff', fontSize: '14px', fontWeight: 500 }}>
+            Bu işlem için yetkiniz yok
+          </span>
         </div>
       )}
     </div>

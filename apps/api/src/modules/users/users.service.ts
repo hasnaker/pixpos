@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../../entities/user.entity';
 import { CreateUserDto, UpdateUserDto } from './dto';
@@ -18,10 +18,12 @@ export class UsersService {
   ) {}
 
   /**
-   * Tüm kullanıcıları getir
+   * Tüm kullanıcıları getir (store bazlı)
    */
-  async findAll(includeInactive = false, role?: string): Promise<User[]> {
-    const where: any = {};
+  async findAll(storeId: string | null, includeInactive = false, role?: string): Promise<User[]> {
+    const where: any = {
+      storeId: storeId ?? IsNull(),
+    };
     
     if (!includeInactive) {
       where.isActive = true;
@@ -44,7 +46,7 @@ export class UsersService {
   async findOne(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id },
-      select: ['id', 'name', 'role', 'isActive', 'lastLoginAt', 'avatarUrl', 'createdAt'],
+      select: ['id', 'name', 'role', 'isActive', 'lastLoginAt', 'avatarUrl', 'createdAt', 'storeId'],
     });
     if (!user) {
       throw new NotFoundException(`Kullanıcı bulunamadı: ${id}`);
@@ -53,11 +55,11 @@ export class UsersService {
   }
 
   /**
-   * PIN ile kullanıcı bul (login için)
+   * PIN ile kullanıcı bul (login için) - store bazlı
    */
-  async findByPin(pin: string): Promise<User | null> {
+  async findByPin(pin: string, storeId: string | null): Promise<User | null> {
     const users = await this.userRepository.find({
-      where: { isActive: true },
+      where: { isActive: true, storeId: storeId ?? IsNull() },
     });
 
     for (const user of users) {
@@ -70,11 +72,11 @@ export class UsersService {
   }
 
   /**
-   * Yeni kullanıcı oluştur
+   * Yeni kullanıcı oluştur (store bazlı)
    */
-  async create(createUserDto: CreateUserDto): Promise<User> {
-    // PIN benzersiz mi kontrol et
-    const existingUser = await this.findByPin(createUserDto.pin);
+  async create(storeId: string | null, createUserDto: CreateUserDto): Promise<User> {
+    // PIN benzersiz mi kontrol et (aynı store içinde)
+    const existingUser = await this.findByPin(createUserDto.pin, storeId);
     if (existingUser) {
       throw new ConflictException('Bu PIN zaten kullanılıyor');
     }
@@ -84,6 +86,7 @@ export class UsersService {
 
     const user = this.userRepository.create({
       ...createUserDto,
+      storeId,
       pin: hashedPin,
     });
 
@@ -105,7 +108,7 @@ export class UsersService {
 
     // PIN değişiyorsa hashle ve benzersizlik kontrol et
     if (updateUserDto.pin) {
-      const existingUser = await this.findByPin(updateUserDto.pin);
+      const existingUser = await this.findByPin(updateUserDto.pin, user.storeId);
       if (existingUser && existingUser.id !== id) {
         throw new ConflictException('Bu PIN zaten kullanılıyor');
       }
@@ -139,10 +142,10 @@ export class UsersService {
   }
 
   /**
-   * PIN ile giriş yap
+   * PIN ile giriş yap (store bazlı)
    */
-  async login(pin: string): Promise<User> {
-    const user = await this.findByPin(pin);
+  async login(pin: string, storeId: string | null): Promise<User> {
+    const user = await this.findByPin(pin, storeId);
     if (!user) {
       throw new UnauthorizedException('Geçersiz PIN');
     }
@@ -156,15 +159,17 @@ export class UsersService {
   }
 
   /**
-   * Varsayılan admin kullanıcısı oluştur (ilk kurulum için)
+   * Varsayılan admin kullanıcısı oluştur (ilk kurulum için) - store bazlı
    */
-  async seedDefaultUser(): Promise<User | null> {
-    const count = await this.userRepository.count();
+  async seedDefaultUser(storeId: string | null): Promise<User | null> {
+    const count = await this.userRepository.count({
+      where: { storeId: storeId ?? IsNull() },
+    });
     if (count > 0) {
       return null; // Zaten kullanıcı var
     }
 
-    return this.create({
+    return this.create(storeId, {
       name: 'Yönetici',
       pin: '0000',
       role: 'admin',

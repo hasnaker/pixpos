@@ -11,6 +11,10 @@ export class UpdateCategoryDto {
   menuId?: string | null;
 
   @IsOptional()
+  @IsUUID()
+  printerId?: string | null;
+
+  @IsOptional()
   @IsNumber()
   @Min(0)
   sortOrder?: number;

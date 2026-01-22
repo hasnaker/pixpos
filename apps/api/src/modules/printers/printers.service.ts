@@ -11,8 +11,13 @@ export class PrintersService {
     private readonly printerRepository: Repository<Printer>,
   ) {}
 
-  async findAll(): Promise<Printer[]> {
+  async findAll(storeId?: string): Promise<Printer[]> {
+    const where: any = {};
+    if (storeId) {
+      where.storeId = storeId;
+    }
     return this.printerRepository.find({
+      where,
       order: { name: 'ASC' },
     });
   }
@@ -25,14 +30,18 @@ export class PrintersService {
     return printer;
   }
 
-  async findByType(type: 'kitchen' | 'bar' | 'receipt'): Promise<Printer[]> {
+  async findByType(type: 'kitchen' | 'bar' | 'receipt', storeId?: string): Promise<Printer[]> {
+    const where: any = { type, isActive: true };
+    if (storeId) {
+      where.storeId = storeId;
+    }
     return this.printerRepository.find({
-      where: { type, isActive: true },
+      where,
       order: { name: 'ASC' },
     });
   }
 
-  async create(createPrinterDto: CreatePrinterDto): Promise<Printer> {
+  async create(createPrinterDto: CreatePrinterDto & { storeId?: string }): Promise<Printer> {
     const printer = this.printerRepository.create({
       ...createPrinterDto,
       port: createPrinterDto.port ?? 9100,

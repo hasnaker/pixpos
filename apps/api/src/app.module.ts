@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -19,6 +19,10 @@ import { ZonesModule } from './modules/zones';
 import { UsersModule } from './modules/users';
 import { OkcModule } from './modules/okc/okc.module';
 import { SettingsModule } from './modules/settings';
+import { StoresModule } from './modules/stores/stores.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { TenantMiddleware } from './common/middleware/tenant.middleware';
+import { Store } from './entities/store.entity';
 
 @Module({
   imports: [
@@ -38,7 +42,7 @@ import { SettingsModule } from './modules/settings';
         database: configService.get('DB_DATABASE', 'megapos'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
-        synchronize: true, // TODO: Production'da false yapılacak
+        synchronize: false, // Production'da false - migration kullan
         logging: configService.get('NODE_ENV') === 'development',
         ssl: configService.get('NODE_ENV') === 'production' ? {
           rejectUnauthorized: false
@@ -61,8 +65,16 @@ import { SettingsModule } from './modules/settings';
     UsersModule,
     OkcModule,
     SettingsModule,
+    StoresModule,
+    AuthModule,
+    TypeOrmModule.forFeature([Store]),
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Tenant middleware disabled for now - single tenant mode
+    // consumer.apply(TenantMiddleware).forRoutes('*');
+  }
+}

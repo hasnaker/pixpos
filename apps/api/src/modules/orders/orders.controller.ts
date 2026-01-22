@@ -221,6 +221,28 @@ export class OrdersController {
   }
 
   /**
+   * POST /api/orders/display/set
+   * Set order to show on customer display (called from POS monitor button)
+   */
+  @Post('display/set')
+  async setDisplayOrder(
+    @Body('orderId') orderId: string | null,
+  ): Promise<{ success: boolean; order?: Order }> {
+    return this.ordersService.setDisplayOrder(orderId);
+  }
+
+  /**
+   * POST /api/orders/display/clear
+   * Clear customer display
+   */
+  @Post('display/clear')
+  @HttpCode(HttpStatus.OK)
+  async clearDisplayOrder(): Promise<{ success: boolean }> {
+    await this.ordersService.clearDisplayOrder();
+    return { success: true };
+  }
+
+  /**
    * GET /api/orders/active
    * Get active order for a specific table (for customer display)
    */
@@ -231,5 +253,26 @@ export class OrdersController {
       return orders.find(o => ['open', 'sent'].includes(o.status)) || null;
     }
     return this.ordersService.getCurrentDisplayOrder();
+  }
+
+  /**
+   * POST /api/orders/:id/discount
+   * Apply discount to order
+   */
+  @Post(':id/discount')
+  async applyDiscount(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() discountDto: { type: 'percent' | 'amount'; value: number },
+  ): Promise<Order> {
+    return this.ordersService.applyDiscount(id, discountDto.type, discountDto.value);
+  }
+
+  /**
+   * DELETE /api/orders/:id/discount
+   * Remove discount from order
+   */
+  @Delete(':id/discount')
+  async removeDiscount(@Param('id', ParseUUIDPipe) id: string): Promise<Order> {
+    return this.ordersService.removeDiscount(id);
   }
 }

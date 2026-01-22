@@ -7,6 +7,11 @@ export class CreateZoneDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(10)
+  prefix?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(50)
   icon?: string;
 
@@ -25,6 +30,11 @@ export class UpdateZoneDto {
   @IsString()
   @MaxLength(50)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  prefix?: string;
 
   @IsOptional()
   @IsString()

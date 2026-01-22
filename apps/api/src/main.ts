@@ -12,6 +12,12 @@ async function bootstrap() {
   app.use(json({ limit: '200mb' }));
   app.use(urlencoded({ extended: true, limit: '200mb' }));
 
+  // Health check endpoint (before global prefix)
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.get('/health', (req: any, res: any) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({

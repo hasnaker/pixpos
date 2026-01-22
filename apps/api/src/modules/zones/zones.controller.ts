@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Delete, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Req } from '@nestjs/common';
+import { Request } from 'express';
 import { ZonesService } from './zones.service';
 import { CreateZoneDto, UpdateZoneDto } from './dto';
 
@@ -7,13 +8,15 @@ export class ZonesController {
   constructor(private readonly zonesService: ZonesService) {}
 
   @Get()
-  findAll() {
-    return this.zonesService.findAll();
+  findAll(@Req() req: Request) {
+    const storeId = (req as any).storeId || null;
+    return this.zonesService.findAll(storeId);
   }
 
   @Get('floors')
-  getFloors() {
-    return this.zonesService.getFloors();
+  getFloors(@Req() req: Request) {
+    const storeId = (req as any).storeId || null;
+    return this.zonesService.getFloors(storeId);
   }
 
   @Get(':id')
@@ -22,13 +25,15 @@ export class ZonesController {
   }
 
   @Post()
-  create(@Body() createZoneDto: CreateZoneDto) {
-    return this.zonesService.create(createZoneDto);
+  create(@Req() req: Request, @Body() createZoneDto: CreateZoneDto) {
+    const storeId = (req as any).storeId || null;
+    return this.zonesService.create(storeId, createZoneDto);
   }
 
   @Post('seed')
-  seed() {
-    return this.zonesService.seedDefaults();
+  seed(@Req() req: Request) {
+    const storeId = (req as any).storeId || null;
+    return this.zonesService.seedDefaults(storeId);
   }
 
   @Put(':id')

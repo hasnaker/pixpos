@@ -13,7 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { Order } from '../../entities/order.entity';
 import { Table } from '../../entities/table.entity';
 
-export type WebSocketRoom = 'pos' | 'kitchen' | 'waiter';
+export type WebSocketRoom = 'pos' | 'kitchen' | 'waiter' | 'display';
 
 @WebSocketGateway({
   cors: {
@@ -41,7 +41,7 @@ export class WebsocketGateway
   }
 
   /**
-   * Handle client joining a room (pos, kitchen, waiter)
+   * Handle client joining a room (pos, kitchen, waiter, display)
    * Requirements: Gerçek zamanlı iletişim
    */
   @SubscribeMessage('join:room')
@@ -51,7 +51,7 @@ export class WebsocketGateway
   ): void {
     const { room } = data;
     
-    if (!['pos', 'kitchen', 'waiter'].includes(room)) {
+    if (!['pos', 'kitchen', 'waiter', 'display'].includes(room)) {
       this.logger.warn(`Invalid room: ${room}`);
       return;
     }
@@ -60,6 +60,39 @@ export class WebsocketGateway
     this.logger.log(`Client ${client.id} joined room: ${room}`);
     
     client.emit('room:joined', { room, success: true });
+  }
+
+  /**
+   * Handle customer display joining
+   */
+  @SubscribeMessage('join:display')
+  handleJoinDisplay(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { tableId?: string },
+  ): void {
+    client.join('display');
+    if (data?.tableId) {
+      client.join(`display:${data.tableId}`);
+    }
+    this.logger.log(`Display client ${client.id} joined`);
+    client.emit('room:joined', { room: 'display', success: true });
+  }
+
+  /**
+   * Handle POS sending order to customer display
+   * POS'tan gelen sipariş bilgisini müşteri ekranına ilet
+   */
+  @SubscribeMessage('display:show-order')
+  handleDisplayShowOrder(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() order: Order | null,
+  ): void {
+    // Broadcast to all display clients
+    this.server.to('display').emit('display:show-order', order);
+    if (order?.tableId) {
+      this.server.to(`display:${order.tableId}`).emit('display:show-order', order);
+    }
+    this.logger.log(`POS sent order to display: ${order?.orderNumber || 'cleared'}`);
   }
 
   /**
@@ -77,6 +110,8 @@ export class WebsocketGateway
    */
   emitOrderUpdated(order: Order): void {
     this.server.to('kitchen').to('pos').to('waiter').emit('order:updated', { order });
+    // Also update customer display
+    this.emitDisplayUpdate(order);
     this.logger.log(`Emitted order:updated for order ${order.orderNumber}`);
   }
 
@@ -104,5 +139,26 @@ export class WebsocketGateway
   emitWaiterCalled(tableId: string, tableName: string): void {
     this.server.to('pos').emit('waiter:called', { tableId, tableName });
     this.logger.log(`Emitted waiter:called for table ${tableName}`);
+  }
+
+  /**
+   * Emit display update event to customer display
+   * Shows current order on second monitor
+   */
+  emitDisplayUpdate(order: Order | null): void {
+    this.server.to('display').emit('display:update', order);
+    if (order?.tableId) {
+      this.server.to(`display:${order.tableId}`).emit('display:update', order);
+    }
+    this.logger.log(`Emitted display:update for order ${order?.orderNumber || 'cleared'}`);
+  }
+
+  /**
+   * Clear customer display (show logo)
+   */
+  emitDisplayClear(): void {
+    this.server.to('display').emit('display:update', null);
+    this.server.to('display').emit('order:cleared');
+    this.logger.log('Emitted display:clear');
   }
 }

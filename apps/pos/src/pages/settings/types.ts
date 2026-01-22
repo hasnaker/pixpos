@@ -1,40 +1,8 @@
 import { Building2, Users, LayoutGrid, Printer as PrinterIcon, Monitor, Receipt, Lock, Settings, UtensilsCrossed, MapPin, CreditCard } from 'lucide-react';
 import type { AutoLockTimeout } from '@/hooks';
 
-// User type
-export interface User {
-  id: string;
-  name: string;
-  role: 'admin' | 'manager' | 'cashier' | 'waiter';
-  pin: string;
-  active: boolean;
-}
-
-// Business settings type
-export interface BusinessSettings {
-  name: string;
-  logo: string | null;
-  address: string;
-  phone: string;
-  taxNumber: string;
-}
-
-// Receipt settings type
-export interface ReceiptSettings {
-  showLogo: boolean;
-  showAddress: boolean;
-  showPhone: boolean;
-  showTaxNumber: boolean;
-  footerText: string;
-  paperWidth: '58mm' | '80mm';
-}
-
-// Device settings type
-export interface DeviceSettings {
-  kitchen: boolean;
-  waiter: boolean;
-  qrMenu: boolean;
-}
+// Re-export types from API (these are the source of truth now)
+export type { BusinessSettings, ReceiptSettings, DeviceSettings, User } from './hooks';
 
 // Tab configuration
 export const TABS = [
@@ -61,47 +29,3 @@ export const TIMEOUT_OPTIONS: { value: AutoLockTimeout; label: string }[] = [
   { value: 30, label: '30 dakika' },
   { value: 0, label: 'Kapalı' },
 ];
-
-// Zones
-export const ZONES = ['Salon', 'Bahçe', 'Dışarı', 'Teras', 'VIP'];
-
-// Default users
-export const DEFAULT_USERS: User[] = [
-  { id: '1', name: 'Ahmet Kaya', role: 'admin', pin: '1234', active: true },
-  { id: '2', name: 'Mehmet Yılmaz', role: 'cashier', pin: '5678', active: true },
-  { id: '3', name: 'Ayşe Demir', role: 'waiter', pin: '9012', active: true },
-];
-
-// Default business settings
-export const DEFAULT_BUSINESS: BusinessSettings = {
-  name: 'PIXPOS Cafe',
-  logo: null,
-  address: 'Örnek Mah. Test Cad. No:1 İstanbul',
-  phone: '0212 123 45 67',
-  taxNumber: '1234567890',
-};
-
-// Default receipt settings
-export const DEFAULT_RECEIPT: ReceiptSettings = {
-  showLogo: true,
-  showAddress: true,
-  showPhone: true,
-  showTaxNumber: true,
-  footerText: 'Bizi tercih ettiğiniz için teşekkürler!',
-  paperWidth: '80mm',
-};
-
-// Default device settings
-export const DEFAULT_DEVICES: DeviceSettings = {
-  kitchen: true,
-  waiter: true,
-  qrMenu: false,
-};
-
-// LocalStorage keys
-export const STORAGE_KEYS = {
-  BUSINESS: 'pixpos_business',
-  RECEIPT: 'pixpos_receipt',
-  DEVICES: 'pixpos_devices',
-  USERS: 'pixpos_users',
-} as const;

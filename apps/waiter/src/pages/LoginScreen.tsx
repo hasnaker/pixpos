@@ -19,12 +19,21 @@ const getInitials = (name: string): string => {
 // Fetch waiters from API
 const fetchWaiters = async (): Promise<Waiter[]> => {
   // Fetch all users and filter by role on client side
-  // API should filter but we do it here as backup
+  // Garsonlar, yöneticiler ve müdürler giriş yapabilir
   const response = await fetch(`${API_URL}/users`);
-  if (!response.ok) throw new Error('Garsonlar yüklenemedi');
+  if (!response.ok) throw new Error('Kullanıcılar yüklenemedi');
   const allUsers = await response.json();
-  // Filter only waiters (role === 'waiter')
-  return allUsers.filter((u: Waiter) => u.role === 'waiter');
+  // Filter waiters, managers and admins - sort by role then name
+  const allowedRoles = ['waiter', 'manager', 'admin'];
+  return allUsers
+    .filter((u: Waiter) => allowedRoles.includes(u.role))
+    .sort((a: Waiter, b: Waiter) => {
+      // Sort by role priority: waiter first, then manager, then admin
+      const roleOrder = { waiter: 0, manager: 1, admin: 2 };
+      const roleCompare = (roleOrder[a.role as keyof typeof roleOrder] || 0) - (roleOrder[b.role as keyof typeof roleOrder] || 0);
+      if (roleCompare !== 0) return roleCompare;
+      return a.name.localeCompare(b.name, 'tr');
+    });
 };
 
 export default function LoginScreen() {
@@ -36,7 +45,7 @@ export default function LoginScreen() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Fetch waiters from API - refetch every 30 seconds for real-time sync
-  const { data: waiters = [], isLoading, error, refetch } = useQuery({
+  const { data: waiters = [], isLoading, error } = useQuery({
     queryKey: ['waiters'],
     queryFn: fetchWaiters,
     staleTime: 1000 * 30, // 30 seconds - faster sync
@@ -322,7 +331,7 @@ export default function LoginScreen() {
               margin: '0 auto 16px',
             }} />
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
-              Garsonlar yükleniyor...
+              Kullanıcılar yükleniyor...
             </p>
           </div>
         )}
@@ -331,7 +340,7 @@ export default function LoginScreen() {
         {error && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: '#FF453A', fontSize: '14px', marginBottom: '16px' }}>
-              Garsonlar yüklenemedi
+              Kullanıcılar yüklenemedi
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -354,10 +363,10 @@ export default function LoginScreen() {
         {!isLoading && !error && waiters.length === 0 && (
           <div style={{ textAlign: 'center' }}>
             <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
-              Henüz garson eklenmemiş.
+              Henüz kullanıcı eklenmemiş.
             </p>
             <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: '13px', marginTop: '8px' }}>
-              POS veya Boss panelinden garson ekleyin.
+              POS veya Boss panelinden kullanıcı ekleyin.
             </p>
           </div>
         )}
@@ -382,7 +391,10 @@ export default function LoginScreen() {
               justifyContent: 'center',
               flexWrap: 'wrap',
             }}>
-              {waiters.map((waiter) => (
+              {waiters.map((waiter) => {
+                const roleLabel = waiter.role === 'admin' ? 'Yönetici' : waiter.role === 'manager' ? 'Müdür' : 'Garson';
+                const roleColor = waiter.role === 'admin' ? '#BF5AF2' : waiter.role === 'manager' ? '#FF9F0A' : '#30D158';
+                return (
                 <button
                   key={waiter.id}
                   onClick={() => setSelectedWaiter(waiter)}
@@ -403,7 +415,11 @@ export default function LoginScreen() {
                   <div style={{
                     width: '56px',
                     height: '56px',
-                    background: 'linear-gradient(135deg, #5E5CE6, #BF5AF2)',
+                    background: waiter.role === 'admin' 
+                      ? 'linear-gradient(135deg, #BF5AF2, #5E5CE6)' 
+                      : waiter.role === 'manager'
+                        ? 'linear-gradient(135deg, #FF9F0A, #FF6B00)'
+                        : 'linear-gradient(135deg, #5E5CE6, #BF5AF2)',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -417,12 +433,12 @@ export default function LoginScreen() {
                     <p style={{ color: '#fff', fontSize: '14px', fontWeight: 500, margin: 0 }}>
                       {waiter.name.split(' ')[0]}
                     </p>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '12px', margin: '4px 0 0' }}>
-                      Garson
+                    <p style={{ color: roleColor, fontSize: '12px', margin: '4px 0 0', fontWeight: 500 }}>
+                      {roleLabel}
                     </p>
                   </div>
                 </button>
-              ))}
+              )})}
             </div>
           </>
         )}
