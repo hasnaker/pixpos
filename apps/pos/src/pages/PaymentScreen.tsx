@@ -309,6 +309,8 @@ export default function PaymentScreen() {
 
   useEffect(() => {
     if (paymentStep === 'success') {
+      // Clear customer display on payment success
+      fetch(`${API_URL}/orders/display/clear`, { method: 'POST' }).catch(() => {});
       const timer = setTimeout(() => navigate('/tables'), 3000);
       return () => clearTimeout(timer);
     }

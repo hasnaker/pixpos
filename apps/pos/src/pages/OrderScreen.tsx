@@ -441,7 +441,13 @@ export default function OrderScreen() {
           {/* Sol: Geri + Masa */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             <button
-              onClick={() => navigate('/tables')}
+              onClick={async () => {
+                // Clear customer display when leaving order screen
+                try {
+                  await fetch(`${API_URL}/orders/display/clear`, { method: 'POST' });
+                } catch (e) { /* ignore */ }
+                navigate('/tables');
+              }}
               style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
